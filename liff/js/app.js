@@ -199,6 +199,10 @@
       .catch(fail);
   }
 
-  // 起動
-  window.addEventListener('DOMContentLoaded', boot);
+  // 起動（DOMContentLoaded が既に発火済みでも確実に起動する）
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
