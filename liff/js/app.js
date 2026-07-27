@@ -10,7 +10,23 @@
 
   function fail(err) {
     var msg = (err && err.message) ? err.message : 'エラーが発生しました。';
-    UI.renderError(msg, boot);
+    var code = err && err.code;
+
+    // IDトークン失効/未認証は、一度だけ自動で再ログインしてトークンを取り直す
+    if (code === 'INVALID_TOKEN' || code === 'UNAUTHENTICATED') {
+      var tried = false;
+      try { tried = sessionStorage.getItem('token_relogin_done') === '1'; } catch (e) {}
+      if (!tried) {
+        try { sessionStorage.setItem('token_relogin_done', '1'); } catch (e) {}
+        UI.setLoading(true, '再ログインしています...');
+        LiffClient.relogin();
+        return;
+      }
+    }
+    UI.renderError(msg, function () {
+      try { sessionStorage.removeItem('token_relogin_done'); } catch (e) {}
+      boot();
+    });
   }
 
   /* ---- 起動 ---- */
@@ -22,6 +38,8 @@
         return Api.call('bootstrap', {}, { silent: true });
       })
       .then(function (data) {
+        // 認証成功。再ログインガードを解除。
+        try { sessionStorage.removeItem('token_relogin_done'); } catch (e) {}
         S.set({ registered: data.registered, employee: data.employee, profile: data.profile || S.get().profile });
         UI.setLoading(false);
         if (!data.registered) return showRegister();
@@ -51,43 +69,56 @@
     });
   }
 
-  /* ---- ホーム ---- */
+  /* ---- ホーム（勤務カレンダーを内包） ---- */
   function showHome() {
+    var now = new Date();
+    renderHomeFor(now.getFullYear(), now.getMonth() + 1);
+  }
+
+  // ホーム本体＋当月カレンダーを取得して描画
+  function renderHomeFor(year, month) {
+    var homeData;
     Api.call('getHome', {})
       .then(function (home) {
-        S.set({ employee: home.employee, screen: 'home' });
-        UI.renderHome(home, {
-          onCompLeave: showCompLeave,
-          onHolidayWork: showHolidayWork,
-          onCalendar: function () { var n = new Date(); showCalendar(n.getFullYear(), n.getMonth() + 1); },
-          onHistory: function () { showHistory('all'); }
-        });
+        homeData = home;
+        return Api.call('getCalendar', { year: year, month: month }, { silent: true });
+      })
+      .then(function (cal) {
+        S.set({ employee: homeData.employee, calendar: cal, currentYear: year, currentMonth: month, screen: 'home' });
+        UI.renderHome(homeData, cal, homeHandlers(year, month));
       })
       .catch(fail);
   }
 
-  /* ---- カレンダー ---- */
-  function showCalendar(year, month) {
+  // カレンダーの月移動時は、カレンダー領域だけ差し替え
+  function reloadHomeCalendar(year, month) {
     Api.call('getCalendar', { year: year, month: month })
       .then(function (cal) {
-        S.set({ calendar: cal, currentYear: year, currentMonth: month, screen: 'calendar' });
-        UI.renderCalendar(cal, {
-          onBack: showHome,
-          onPrev: function () { var m = shift(year, month, -1); showCalendar(m.y, m.m); },
-          onNext: function () { var m = shift(year, month, 1); showCalendar(m.y, m.m); }
-        });
+        S.set({ calendar: cal, currentYear: year, currentMonth: month });
+        UI.updateHomeCalendar(cal, homeHandlers(year, month));
       })
       .catch(fail);
   }
+
+  function homeHandlers(year, month) {
+    return {
+      onHistory: function () { showHistory('all'); },
+      onAddHolidayWork: function (date) { showHolidayWork(date); },
+      onAddCompLeave: function (date) { showCompLeave(date); },
+      onPrevMonth: function () { var m = shift(year, month, -1); reloadHomeCalendar(m.y, m.m); },
+      onNextMonth: function () { var m = shift(year, month, 1); reloadHomeCalendar(m.y, m.m); }
+    };
+  }
+
   function shift(y, m, d) {
     var idx = (y * 12 + (m - 1)) + d;
     return { y: Math.floor(idx / 12), m: (idx % 12) + 1 };
   }
 
   /* ---- 休日出勤申請 ---- */
-  function showHolidayWork() {
+  function showHolidayWork(defaultDate) {
     S.set({ screen: 'holidayWork' });
-    UI.renderHolidayWorkForm({ start: '10:00', end: '19:00' }, {
+    UI.renderHolidayWorkForm({ date: defaultDate || '', start: '10:00', end: '19:00' }, {
       onBack: showHome,
       onSubmit: function (payload) {
         if (!payload.target_date) return UI.toast('対象日を選択してください。', true);
@@ -100,7 +131,13 @@
           ['代休希望日', payload.preferred_compensatory_date || '（なし）']
         ], function (done) {
           Api.call('createHolidayWork', payload)
-            .then(function () { done(); UI.renderDone('休日出勤申請を送信しました。承認をお待ちください。', showHome); })
+            .then(function (res) {
+              done();
+              var applied = res && res.request && res.request.status === 'approved';
+              UI.renderDone(applied
+                ? '休日出勤を勤務カレンダーに登録しました。代休を1日付与しました。'
+                : '休日出勤申請を送信しました。承認をお待ちください。', showHome);
+            })
             .catch(function (err) { UI.closeModal(); UI.toast(err.message, true); });
         });
       }
@@ -108,10 +145,13 @@
   }
 
   /* ---- 代休申請 ---- */
-  function showCompLeave() {
+  function showCompLeave(defaultDate) {
     Api.call('getAvailableLeaves', {})
       .then(function (data) {
         S.set({ leaves: data.leaves, screen: 'compLeave' });
+        if (!data.leaves.length) {
+          UI.toast('利用可能な代休がありません。まず休日出勤で代休を取得してください。', true);
+        }
         UI.renderCompLeaveForm(data.leaves, {
           onBack: showHome,
           onSubmit: function (payload) {
@@ -124,11 +164,17 @@
               ['期限', leave ? leave.expiration_date : '']
             ], function (done) {
               Api.call('createCompLeave', payload)
-                .then(function () { done(); UI.renderDone('代休申請を送信しました。承認をお待ちください。', showHome); })
+                .then(function (res) {
+                  done();
+                  var applied = res && res.request && res.request.status === 'approved';
+                  UI.renderDone(applied
+                    ? '代休を勤務カレンダーに登録しました。'
+                    : '代休申請を送信しました。承認をお待ちください。', showHome);
+                })
                 .catch(function (err) { UI.closeModal(); UI.toast(err.message, true); });
             });
           }
-        });
+        }, defaultDate);
       })
       .catch(fail);
   }

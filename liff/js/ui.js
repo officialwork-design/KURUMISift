@@ -95,8 +95,8 @@ window.UI = (function () {
 
   function closeModal() { modalRoot().innerHTML = ''; }
 
-  /* ---- ホーム ---- */
-  function renderHome(home, handlers) {
+  /* ---- ホーム（勤務カレンダーを内包。遷移するのは申請履歴のみ） ---- */
+  function renderHome(home, cal, handlers) {
     var e = home.employee || {};
     app().innerHTML =
       '<section class="screen">' +
@@ -114,16 +114,18 @@ window.UI = (function () {
         stat('申請中', home.pendingRequests + ' 件') +
         stat('期限が近い代休', home.leavesExpiringSoon + ' 日') +
       '</div>' +
+      '<h3 class="section-title">勤務カレンダー</h3>' +
+      '<div id="home-cal"></div>' +
       '<div class="btn-stack">' +
-        '<button id="h-comp" class="btn btn-primary">代休を申請する</button>' +
-        '<button id="h-holiday" class="btn btn-primary">休日出勤を申請する</button>' +
-        '<button id="h-cal" class="btn btn-outline">勤務カレンダー</button>' +
         '<button id="h-hist" class="btn btn-outline">申請履歴</button>' +
       '</div></section>';
-    document.getElementById('h-comp').addEventListener('click', handlers.onCompLeave);
-    document.getElementById('h-holiday').addEventListener('click', handlers.onHolidayWork);
-    document.getElementById('h-cal').addEventListener('click', handlers.onCalendar);
     document.getElementById('h-hist').addEventListener('click', handlers.onHistory);
+    renderCalendarInto('home-cal', cal, handlers);
+  }
+
+  /** ホーム内カレンダーの月切り替え時に、カレンダー領域だけ再描画 */
+  function updateHomeCalendar(cal, handlers) {
+    renderCalendarInto('home-cal', cal, handlers);
   }
 
   function stat(cap, val) {
@@ -140,8 +142,10 @@ window.UI = (function () {
     if (b) b.addEventListener('click', onBack);
   }
 
-  /* ---- カレンダー ---- */
-  function renderCalendar(cal, handlers) {
+  /* ---- カレンダー（指定コンテナ内に描画。ホームに内包する） ---- */
+  function renderCalendarInto(containerId, cal, handlers) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
     var cells = '';
     var first = new Date(cal.year, cal.month - 1, 1).getDay();
     for (var i = 0; i < first; i++) cells += '<div class="cal-cell empty"></div>';
@@ -153,9 +157,7 @@ window.UI = (function () {
         '<span class="cal-tag">' + esc(shortLabel(d)) + '</span>' +
         '</button>';
     });
-    app().innerHTML =
-      backBar('勤務カレンダー') +
-      '<section class="screen">' +
+    container.innerHTML =
       '<div class="cal-nav">' +
         '<button id="cal-prev" class="btn btn-ghost">‹ 前月</button>' +
         '<span class="cal-title">' + cal.year + '年 ' + cal.month + '月</span>' +
@@ -163,17 +165,18 @@ window.UI = (function () {
       '</div>' +
       '<div class="cal-weekhead"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>' +
       '<div class="cal-grid">' + cells + '</div>' +
-      '<div class="legend">' + legend() + '</div>' +
+      '<p class="cal-hint">日付をタップすると、その日に休日出勤・代休を申請できます。</p>' +
       '<div id="day-detail" class="day-detail"></div>' +
-      '</section>';
-    wireBack(handlers.onBack);
-    document.getElementById('cal-prev').addEventListener('click', handlers.onPrev);
-    document.getElementById('cal-next').addEventListener('click', handlers.onNext);
-    Array.prototype.forEach.call(document.querySelectorAll('.cal-cell[data-date]'), function (btn) {
+      '<div class="legend">' + legend() + '</div>';
+    var prev = container.querySelector('#cal-prev');
+    var next = container.querySelector('#cal-next');
+    if (prev && handlers.onPrevMonth) prev.addEventListener('click', handlers.onPrevMonth);
+    if (next && handlers.onNextMonth) next.addEventListener('click', handlers.onNextMonth);
+    Array.prototype.forEach.call(container.querySelectorAll('.cal-cell[data-date]'), function (btn) {
       btn.addEventListener('click', function () {
         var date = btn.getAttribute('data-date');
         var day = cal.days.filter(function (x) { return x.date === date; })[0];
-        showDayDetail(day);
+        showDayDetail(day, handlers);
       });
     });
   }
@@ -185,16 +188,48 @@ window.UI = (function () {
     return WORK_TYPE_LABEL[d.work_type] || '';
   }
 
-  function showDayDetail(d) {
+  function showDayDetail(d, handlers) {
     if (!d) return;
     var box = document.getElementById('day-detail');
+
+    // すでに休日出勤/代休が入っている、または申請中なら追加不可
+    var alreadySet = (d.work_type === 'holiday_work' || d.work_type === 'compensatory_leave');
+    var isPending = (d.status === 'pending');
+
+    var actions = '';
+    if (isPending) {
+      actions = '<p class="muted small">この日は申請中です。</p>';
+    } else if (alreadySet) {
+      actions = '<p class="muted small">この日は' + esc(WORK_TYPE_LABEL[d.work_type]) + 'として登録済みです。</p>';
+    } else {
+      actions =
+        '<div class="detail-actions">' +
+        '<button id="add-hw" class="btn btn-primary" data-date="' + esc(d.date) + '">この日に休日出勤を申請</button>' +
+        '<button id="add-cl" class="btn btn-outline" data-date="' + esc(d.date) + '">この日に代休を申請</button>' +
+        '</div>';
+    }
+
     box.innerHTML =
       '<h3>' + esc(d.date) + '</h3>' +
       '<p>区分: ' + esc(WORK_TYPE_LABEL[d.work_type] || d.work_type) +
         (d.holiday_name ? '（' + esc(d.holiday_name) + '）' : '') + '</p>' +
       (d.start_time ? '<p>時間: ' + esc(d.start_time) + ' 〜 ' + esc(d.end_time) + '</p>' : '') +
       '<p>状態: ' + (d.status === 'pending' ? '申請中' : '確定') + '</p>' +
-      (d.remarks ? '<p>備考: ' + esc(d.remarks) + '</p>' : '');
+      (d.remarks ? '<p>備考: ' + esc(d.remarks) + '</p>' : '') +
+      actions;
+
+    if (handlers) {
+      var hw = document.getElementById('add-hw');
+      if (hw && handlers.onAddHolidayWork) {
+        hw.addEventListener('click', function () { handlers.onAddHolidayWork(d.date); });
+      }
+      var cl = document.getElementById('add-cl');
+      if (cl && handlers.onAddCompLeave) {
+        cl.addEventListener('click', function () { handlers.onAddCompLeave(d.date); });
+      }
+    }
+    // タップした日の詳細・申請ボタンが画面外にならないよう表示位置へスクロール
+    try { box.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
   }
 
   function legend() {
@@ -234,7 +269,7 @@ window.UI = (function () {
   }
 
   /* ---- 代休申請 ---- */
-  function renderCompLeaveForm(leaves, handlers) {
+  function renderCompLeaveForm(leaves, handlers, defaultDate) {
     var options = leaves.length
       ? leaves.map(function (l) {
           return '<label class="leave-opt"><input type="radio" name="leave" value="' + esc(l.leave_id) + '">' +
@@ -247,7 +282,7 @@ window.UI = (function () {
       '<section class="screen"><div class="card">' +
       '<label class="field-label">使用する代休</label>' +
       '<div class="leave-list">' + options + '</div>' +
-      field('取得希望日', '<input id="cl-date" class="input" type="date">') +
+      field('取得希望日', '<input id="cl-date" class="input" type="date" value="' + esc(defaultDate || '') + '">') +
       field('備考（任意）', '<textarea id="cl-remarks" class="input" rows="2"></textarea>') +
       '<button id="cl-submit" class="btn btn-primary"' + (leaves.length ? '' : ' disabled') + '>確認する</button>' +
       '</div></section>';
@@ -338,7 +373,7 @@ window.UI = (function () {
     esc: esc, setLoading: setLoading, toast: toast,
     renderError: renderError, renderLoginPrompt: renderLoginPrompt,
     renderRegister: renderRegister, renderRegisterConfirm: renderRegisterConfirm,
-    renderHome: renderHome, renderCalendar: renderCalendar,
+    renderHome: renderHome, updateHomeCalendar: updateHomeCalendar,
     renderHolidayWorkForm: renderHolidayWorkForm, renderCompLeaveForm: renderCompLeaveForm,
     confirmDialog: confirmDialog, renderDone: renderDone, renderHistory: renderHistory,
     closeModal: closeModal,
