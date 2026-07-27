@@ -59,6 +59,11 @@ function createHolidayWorkRequest(emp, payload) {
   };
   appendRow(SHEET.REQUESTS, req);
   logAction(emp.employee_id, ACTION_TYPE.CREATE_REQUEST, 'request', req.request_id, null, req);
+
+  // 自動承認ONなら、申請＝即カレンダー反映（休日出勤登録＋代休付与）
+  if (isAutoApprove()) {
+    return approveRequest(emp, req.request_id, { silent: true });
+  }
   notifyAdmins('【休日出勤申請】' + emp.real_name + ' さんが ' + targetDate + ' の休日出勤を申請しました。');
   return req;
 }
@@ -107,6 +112,11 @@ function createCompLeaveRequest(emp, payload) {
     throw e;
   }
   logAction(emp.employee_id, ACTION_TYPE.CREATE_REQUEST, 'request', req.request_id, null, req);
+
+  // 自動承認ONなら、申請＝即カレンダー反映（代休を使用済みにしてカレンダー登録）
+  if (isAutoApprove()) {
+    return approveRequest(emp, req.request_id, { silent: true });
+  }
   notifyAdmins('【代休申請】' + emp.real_name + ' さんが ' + targetDate + ' の代休を申請しました。');
   return req;
 }
@@ -138,10 +148,19 @@ function _assertPending(req) {
   }
 }
 
+/** 自動承認（申請＝即カレンダー反映）が有効か。設定 AUTO_APPROVE_REQUESTS（既定 true）。 */
+function isAutoApprove() {
+  return String(getSetting('AUTO_APPROVE_REQUESTS', 'true')) === 'true';
+}
+
 /**
  * 申請承認。二重処理防止のためロック内で状態を再確認する。
+ * @param actor 承認者（社員オブジェクト。自動承認時は申請者本人）
+ * @param opts  { silent:boolean } 本人へのプッシュ通知を抑止
  */
-function approveRequest(admin, requestId) {
+function approveRequest(actor, requestId, opts) {
+  opts = opts || {};
+  var actorId = actor && actor.employee_id ? actor.employee_id : 'system';
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -153,28 +172,28 @@ function approveRequest(admin, requestId) {
     if (String(req.request_type) === REQUEST_TYPE.HOLIDAY_WORK) {
       // 状態を先に承認済みへ（冪等性確保）
       var after = updateRowById(SHEET.REQUESTS, 'request_id', requestId, {
-        status: REQUEST_STATUS.APPROVED, approved_by: admin.employee_id, approved_at: now, updated_at: now
+        status: REQUEST_STATUS.APPROVED, approved_by: actorId, approved_at: now, updated_at: now
       });
       // 勤務カレンダーへ休日出勤を登録
       addScheduleEntry(req.employee_id, req.target_date, WORK_TYPE.HOLIDAY_WORK,
         req.start_time, req.end_time, requestId, req.remarks);
       // 代休を1日付与（冪等：request_id で重複防止）
       grantLeave(req.employee_id, requestId, req.target_date);
-      logAction(admin.employee_id, ACTION_TYPE.APPROVE_REQUEST, 'request', requestId, req, after);
-      if (emp) pushMessage(emp.line_user_id,
+      logAction(actorId, ACTION_TYPE.APPROVE_REQUEST, 'request', requestId, req, after);
+      if (emp && !opts.silent) pushMessage(emp.line_user_id,
         '【承認】' + req.target_date + ' の休日出勤申請が承認されました。代休を1日付与しました。');
       return after;
 
     } else if (String(req.request_type) === REQUEST_TYPE.COMP_LEAVE) {
       var after2 = updateRowById(SHEET.REQUESTS, 'request_id', requestId, {
-        status: REQUEST_STATUS.APPROVED, approved_by: admin.employee_id, approved_at: now, updated_at: now
+        status: REQUEST_STATUS.APPROVED, approved_by: actorId, approved_at: now, updated_at: now
       });
       // 対象代休を使用済みへ
       setLeaveUsed(req.selected_leave_id, req.target_date);
       // 勤務カレンダーへ代休を登録
       addScheduleEntry(req.employee_id, req.target_date, WORK_TYPE.COMP_LEAVE, '', '', requestId, req.remarks);
-      logAction(admin.employee_id, ACTION_TYPE.APPROVE_REQUEST, 'request', requestId, req, after2);
-      if (emp) pushMessage(emp.line_user_id, '【承認】' + req.target_date + ' の代休申請が承認されました。');
+      logAction(actorId, ACTION_TYPE.APPROVE_REQUEST, 'request', requestId, req, after2);
+      if (emp && !opts.silent) pushMessage(emp.line_user_id, '【承認】' + req.target_date + ' の代休申請が承認されました。');
       return after2;
     }
     throw new AppError(ERROR_CODES.VALIDATION, '不明な申請種別です。');

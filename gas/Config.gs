@@ -98,7 +98,8 @@ var SETTINGS_DEFAULTS = [
   ['REGULAR_END_TIME', '19:00', '通常勤務終了時刻'],
   ['COMP_LEAVE_EXPIRY_DAYS', '60', '代休有効期限（休日出勤日からの日数）'],
   ['TIMEZONE', 'Asia/Tokyo', 'タイムゾーン'],
-  ['APP_NAME', 'KURUMI Shift', 'アプリ名']
+  ['APP_NAME', 'KURUMI Shift', 'アプリ名'],
+  ['AUTO_APPROVE_REQUESTS', 'true', '申請を自動承認して即カレンダー反映するか（true/false）']
 ];
 
 /** 役割 */

@@ -100,7 +100,13 @@
           ['代休希望日', payload.preferred_compensatory_date || '（なし）']
         ], function (done) {
           Api.call('createHolidayWork', payload)
-            .then(function () { done(); UI.renderDone('休日出勤申請を送信しました。承認をお待ちください。', showHome); })
+            .then(function (res) {
+              done();
+              var applied = res && res.request && res.request.status === 'approved';
+              UI.renderDone(applied
+                ? '休日出勤を勤務カレンダーに登録しました。代休を1日付与しました。'
+                : '休日出勤申請を送信しました。承認をお待ちください。', showHome);
+            })
             .catch(function (err) { UI.closeModal(); UI.toast(err.message, true); });
         });
       }
@@ -124,7 +130,13 @@
               ['期限', leave ? leave.expiration_date : '']
             ], function (done) {
               Api.call('createCompLeave', payload)
-                .then(function () { done(); UI.renderDone('代休申請を送信しました。承認をお待ちください。', showHome); })
+                .then(function (res) {
+                  done();
+                  var applied = res && res.request && res.request.status === 'approved';
+                  UI.renderDone(applied
+                    ? '代休を勤務カレンダーに登録しました。'
+                    : '代休申請を送信しました。承認をお待ちください。', showHome);
+                })
                 .catch(function (err) { UI.closeModal(); UI.toast(err.message, true); });
             });
           }
