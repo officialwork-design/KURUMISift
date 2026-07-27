@@ -117,8 +117,11 @@ window.UI = (function () {
       '<div id="home-cal"></div>' +
       '<div class="btn-stack">' +
         '<button id="h-hist" class="btn btn-outline">申請履歴</button>' +
+        (e.role === 'admin' ? '<button id="h-admin" class="btn btn-primary">管理者メニュー</button>' : '') +
       '</div></section>';
     document.getElementById('h-hist').addEventListener('click', handlers.onHistory);
+    var adminBtn = document.getElementById('h-admin');
+    if (adminBtn && handlers.onAdmin) adminBtn.addEventListener('click', handlers.onAdmin);
     // カレンダーへ代休残数を渡す（残ゼロ時の案内に使用）
     handlers.availableLeaves = home.availableLeaves;
     renderCalendarInto('home-cal', cal, handlers);
@@ -374,6 +377,146 @@ window.UI = (function () {
       '</div></div>';
   }
 
+  /* ============ 管理者画面（LIFF内に統合） ============ */
+
+  var LEAVE_STATUS_LABEL = {
+    available: '未使用', pending: '申請中', used: '使用済み', expired: '期限切れ', cancelled: '取消'
+  };
+  var EMP_STATUS_LABEL = { active: '有効', suspended: '停止', retired: '退職' };
+
+  function renderAdminMenu(handlers) {
+    app().innerHTML =
+      backBar('管理者メニュー') +
+      '<section class="screen"><div class="btn-stack">' +
+      '<button id="a-dash" class="btn btn-outline">ダッシュボード</button>' +
+      '<button id="a-req" class="btn btn-outline">申請一覧</button>' +
+      '<button id="a-emp" class="btn btn-outline">社員一覧</button>' +
+      '<button id="a-lv" class="btn btn-outline">代休台帳</button>' +
+      '<button id="a-set" class="btn btn-outline">設定</button>' +
+      '<button id="a-log" class="btn btn-outline">操作ログ</button>' +
+      '</div></section>';
+    wireBack(handlers.onBack);
+    document.getElementById('a-dash').addEventListener('click', handlers.onDashboard);
+    document.getElementById('a-req').addEventListener('click', handlers.onRequests);
+    document.getElementById('a-emp').addEventListener('click', handlers.onEmployees);
+    document.getElementById('a-lv').addEventListener('click', handlers.onLeaves);
+    document.getElementById('a-set').addEventListener('click', handlers.onSettings);
+    document.getElementById('a-log').addEventListener('click', handlers.onLogs);
+  }
+
+  function renderAdminDashboard(d, handlers) {
+    function m(cap, val) {
+      return '<div class="stat"><span class="stat-cap">' + esc(cap) + '</span>' +
+        '<span class="stat-val">' + esc(val) + '</span></div>';
+    }
+    app().innerHTML =
+      backBar('ダッシュボード') +
+      '<section class="screen"><div class="stat-grid">' +
+      m('本日の出勤予定', d.todayAttending + ' 人') +
+      m('本日の休暇', d.todayOff + ' 人') +
+      m('未承認申請', d.pendingRequests + ' 件') +
+      m('未取得代休', d.unusedLeaves + ' 件') +
+      '</div></section>';
+    wireBack(handlers.onBack);
+  }
+
+  function renderAdminRequests(requests, filter, handlers) {
+    var filters = [['pending', '未承認'], ['all', '全件'], ['approved', '承認済み'], ['rejected', '却下']];
+    var tabs = filters.map(function (f) {
+      return '<button class="tab' + (f[0] === filter ? ' active' : '') + '" data-f="' + f[0] + '">' + f[1] + '</button>';
+    }).join('');
+    var list = requests.length ? requests.map(function (r) {
+      var actions = r.status === 'pending'
+        ? '<div class="detail-actions"><button class="btn btn-primary" data-ap="' + esc(r.request_id) + '">承認</button>' +
+          '<button class="btn btn-ghost" data-rj="' + esc(r.request_id) + '">却下</button></div>'
+        : '';
+      return '<div class="hist-card status-' + esc(r.status) + '">' +
+        '<div class="hist-head"><span class="hist-type">' + esc(r.employee_name) + '：' +
+        esc(REQUEST_TYPE_LABEL[r.request_type] || r.request_type) + '</span>' +
+        '<span class="status-pill st-' + esc(r.status) + '">' + esc(REQUEST_STATUS_LABEL[r.status] || r.status) + '</span></div>' +
+        '<div class="hist-body"><p>対象日: ' + esc(r.target_date) + '</p>' +
+        (r.start_time ? '<p>時間: ' + esc(r.start_time) + '〜' + esc(r.end_time) + '</p>' : '') +
+        (r.reason ? '<p>理由: ' + esc(r.reason) + '</p>' : '') + actions + '</div></div>';
+    }).join('') : '<p class="muted center">該当する申請はありません。</p>';
+    app().innerHTML = backBar('申請一覧') +
+      '<section class="screen"><div class="tabs">' + tabs + '</div><div class="hist-list">' + list + '</div></section>';
+    wireBack(handlers.onBack);
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
+      t.addEventListener('click', function () { handlers.onFilter(t.getAttribute('data-f')); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ap]'), function (b) {
+      b.addEventListener('click', function () { b.disabled = true; handlers.onApprove(b.getAttribute('data-ap')); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-rj]'), function (b) {
+      b.addEventListener('click', function () { handlers.onReject(b.getAttribute('data-rj')); });
+    });
+  }
+
+  function renderAdminEmployees(employees, handlers) {
+    var list = employees.map(function (e) {
+      return '<div class="hist-card">' +
+        '<div class="hist-head"><span class="hist-type">' + esc(e.real_name) + '</span>' +
+        '<span class="status-pill emp-' + esc(e.status) + '">' + esc(EMP_STATUS_LABEL[e.status] || e.status) + '</span></div>' +
+        '<div class="hist-body"><p>権限: ' + esc(e.role) + ' / 有給残: ' + esc(e.paid_leave_balance != null ? e.paid_leave_balance : 0) + ' 日</p>' +
+        '<button class="btn btn-outline" data-edit="' + esc(e.employee_id) + '">編集</button></div></div>';
+    }).join('');
+    app().innerHTML = backBar('社員一覧') + '<section class="screen"><div class="hist-list">' + list + '</div></section>';
+    wireBack(handlers.onBack);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (b) {
+      b.addEventListener('click', function () {
+        var emp = employees.filter(function (x) { return x.employee_id === b.getAttribute('data-edit'); })[0];
+        handlers.onEdit(emp);
+      });
+    });
+  }
+
+  function renderAdminLeaves(leaves, filter, handlers) {
+    var filters = [['all', '全件'], ['unused', '未取得'], ['expired', '期限切れ']];
+    var chips = filters.map(function (f) {
+      return '<button class="tab' + (f[0] === filter ? ' active' : '') + '" data-lf="' + f[0] + '">' + f[1] + '</button>';
+    }).join('');
+    var list = leaves.length ? leaves.map(function (l) {
+      return '<div class="hist-card"><div class="hist-body">' +
+        '<p>休日出勤日: ' + esc(l.work_date) + ' / 付与: ' + esc(l.granted_days) + '日</p>' +
+        '<p>状態: ' + esc(LEAVE_STATUS_LABEL[l.status] || l.status) + (l.used_date ? ' / 使用日: ' + esc(l.used_date) : '') + '</p>' +
+        '</div></div>';
+    }).join('') : '<p class="muted center">該当なし</p>';
+    app().innerHTML = backBar('代休台帳') +
+      '<section class="screen"><div class="tabs">' + chips + '</div><div class="hist-list">' + list + '</div></section>';
+    wireBack(handlers.onBack);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-lf]'), function (t) {
+      t.addEventListener('click', function () { handlers.onFilter(t.getAttribute('data-lf')); });
+    });
+  }
+
+  function renderAdminSettings(settings, handlers) {
+    var rows = Object.keys(settings).map(function (k) {
+      return '<div class="card" style="margin-bottom:8px">' +
+        '<label class="field-label">' + esc(k) + '</label>' +
+        '<input class="input" id="set-' + esc(k) + '" value="' + esc(settings[k]) + '">' +
+        '<button class="btn btn-outline" data-save="' + esc(k) + '">保存</button></div>';
+    }).join('');
+    app().innerHTML = backBar('設定') + '<section class="screen">' + rows + '</section>';
+    wireBack(handlers.onBack);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-save]'), function (b) {
+      b.addEventListener('click', function () {
+        var k = b.getAttribute('data-save');
+        handlers.onSave(k, document.getElementById('set-' + k).value);
+      });
+    });
+  }
+
+  function renderAdminLogs(logs, handlers) {
+    var list = logs.length ? logs.map(function (l) {
+      return '<div class="hist-card"><div class="hist-body">' +
+        '<p class="muted small">' + esc((l.created_at || '').replace('T', ' ').slice(0, 19)) + '</p>' +
+        '<p>' + esc(l.action_type) + ' / ' + esc(l.target_type) + '</p>' +
+        '<p class="muted small">' + esc((l.after_data || '').slice(0, 100)) + '</p></div></div>';
+    }).join('') : '<p class="muted center">ログがありません。</p>';
+    app().innerHTML = backBar('操作ログ') + '<section class="screen"><div class="hist-list">' + list + '</div></section>';
+    wireBack(handlers.onBack);
+  }
+
   return {
     esc: esc, setLoading: setLoading, toast: toast,
     renderError: renderError, renderLoginPrompt: renderLoginPrompt,
@@ -381,6 +524,10 @@ window.UI = (function () {
     renderHome: renderHome, updateHomeCalendar: updateHomeCalendar,
     renderHolidayWorkForm: renderHolidayWorkForm, renderCompLeaveForm: renderCompLeaveForm,
     confirmDialog: confirmDialog, renderDone: renderDone, renderHistory: renderHistory,
+    renderAdminMenu: renderAdminMenu, renderAdminDashboard: renderAdminDashboard,
+    renderAdminRequests: renderAdminRequests, renderAdminEmployees: renderAdminEmployees,
+    renderAdminLeaves: renderAdminLeaves, renderAdminSettings: renderAdminSettings,
+    renderAdminLogs: renderAdminLogs,
     closeModal: closeModal,
     labels: { REQUEST_STATUS_LABEL: REQUEST_STATUS_LABEL, WORK_TYPE_LABEL: WORK_TYPE_LABEL }
   };

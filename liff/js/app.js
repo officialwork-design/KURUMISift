@@ -111,6 +111,7 @@
     return {
       availableLeaves: _availableLeaves,
       onHistory: function () { showHistory('all'); },
+      onAdmin: function () { showAdminMenu(); },
       onAddHolidayWork: function (date) { showHolidayWork(date); },
       onAddCompLeave: function (date) { showCompLeave(date); },
       onPrevMonth: function () { var m = shift(year, month, -1); reloadHomeCalendar(m.y, m.m); },
@@ -197,6 +198,87 @@
         });
       })
       .catch(fail);
+  }
+
+  /* ---- 管理者（LIFF内に統合。role=admin のみ。GAS側でも権限検証） ---- */
+  function showAdminMenu() {
+    S.set({ screen: 'adminMenu' });
+    UI.renderAdminMenu({
+      onBack: showHome,
+      onDashboard: showAdminDashboard,
+      onRequests: function () { showAdminRequests('pending'); },
+      onEmployees: showAdminEmployees,
+      onLeaves: function () { showAdminLeaves('all'); },
+      onSettings: showAdminSettings,
+      onLogs: showAdminLogs
+    });
+  }
+  function showAdminDashboard() {
+    Api.call('adminDashboard', {}).then(function (d) {
+      UI.renderAdminDashboard(d, { onBack: showAdminMenu });
+    }).catch(fail);
+  }
+  function showAdminRequests(filter) {
+    Api.call('adminListRequests', { status: filter }).then(function (data) {
+      UI.renderAdminRequests(data.requests, filter, {
+        onBack: showAdminMenu,
+        onFilter: function (f) { showAdminRequests(f); },
+        onApprove: function (id) {
+          Api.call('adminApproveRequest', { request_id: id })
+            .then(function () { UI.toast('承認しました。'); showAdminRequests(filter); })
+            .catch(function (e) { UI.toast(e.message, true); showAdminRequests(filter); });
+        },
+        onReject: function (id) {
+          var r = window.prompt('却下理由（任意）:', ''); if (r === null) return;
+          Api.call('adminRejectRequest', { request_id: id, reason: r })
+            .then(function () { UI.toast('却下しました。'); showAdminRequests(filter); })
+            .catch(function (e) { UI.toast(e.message, true); showAdminRequests(filter); });
+        }
+      });
+    }).catch(fail);
+  }
+  function showAdminEmployees() {
+    Api.call('adminListEmployees', {}).then(function (data) {
+      UI.renderAdminEmployees(data.employees, {
+        onBack: showAdminMenu,
+        onEdit: function (emp) {
+          var paid = window.prompt('有給残日数（0以上）:', emp.paid_leave_balance != null ? emp.paid_leave_balance : 0);
+          if (paid === null) return;
+          var role = window.prompt('権限 (employee / admin):', emp.role); if (role === null) return;
+          var status = window.prompt('状態 (active / suspended / retired):', emp.status); if (status === null) return;
+          Api.call('adminUpdateEmployee', {
+            employee_id: emp.employee_id,
+            patch: { paid_leave_balance: paid, role: role, status: status }
+          }).then(function () { UI.toast('更新しました。'); showAdminEmployees(); })
+            .catch(function (e) { UI.toast(e.message, true); });
+        }
+      });
+    }).catch(fail);
+  }
+  function showAdminLeaves(filter) {
+    Api.call('adminListLeaves', { filter: filter }).then(function (data) {
+      UI.renderAdminLeaves(data.leaves, filter, {
+        onBack: showAdminMenu,
+        onFilter: function (f) { showAdminLeaves(f); }
+      });
+    }).catch(fail);
+  }
+  function showAdminSettings() {
+    Api.call('adminGetSettings', {}).then(function (data) {
+      UI.renderAdminSettings(data.settings, {
+        onBack: showAdminMenu,
+        onSave: function (key, val) {
+          Api.call('adminUpdateSetting', { key: key, value: val })
+            .then(function () { UI.toast('保存しました。'); })
+            .catch(function (e) { UI.toast(e.message, true); });
+        }
+      });
+    }).catch(fail);
+  }
+  function showAdminLogs() {
+    Api.call('adminListLogs', { limit: 100 }).then(function (data) {
+      UI.renderAdminLogs(data.logs, { onBack: showAdminMenu });
+    }).catch(fail);
   }
 
   // 起動（DOMContentLoaded が既に発火済みでも確実に起動する）
