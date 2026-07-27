@@ -74,7 +74,9 @@
         UI.renderCalendar(cal, {
           onBack: showHome,
           onPrev: function () { var m = shift(year, month, -1); showCalendar(m.y, m.m); },
-          onNext: function () { var m = shift(year, month, 1); showCalendar(m.y, m.m); }
+          onNext: function () { var m = shift(year, month, 1); showCalendar(m.y, m.m); },
+          onAddHolidayWork: function (date) { showHolidayWork(date); },
+          onAddCompLeave: function (date) { showCompLeave(date); }
         });
       })
       .catch(fail);
@@ -85,9 +87,9 @@
   }
 
   /* ---- 休日出勤申請 ---- */
-  function showHolidayWork() {
+  function showHolidayWork(defaultDate) {
     S.set({ screen: 'holidayWork' });
-    UI.renderHolidayWorkForm({ start: '10:00', end: '19:00' }, {
+    UI.renderHolidayWorkForm({ date: defaultDate || '', start: '10:00', end: '19:00' }, {
       onBack: showHome,
       onSubmit: function (payload) {
         if (!payload.target_date) return UI.toast('対象日を選択してください。', true);
@@ -114,10 +116,13 @@
   }
 
   /* ---- 代休申請 ---- */
-  function showCompLeave() {
+  function showCompLeave(defaultDate) {
     Api.call('getAvailableLeaves', {})
       .then(function (data) {
         S.set({ leaves: data.leaves, screen: 'compLeave' });
+        if (!data.leaves.length) {
+          UI.toast('利用可能な代休がありません。まず休日出勤で代休を取得してください。', true);
+        }
         UI.renderCompLeaveForm(data.leaves, {
           onBack: showHome,
           onSubmit: function (payload) {
@@ -140,7 +145,7 @@
                 .catch(function (err) { UI.closeModal(); UI.toast(err.message, true); });
             });
           }
-        });
+        }, defaultDate);
       })
       .catch(fail);
   }

@@ -173,7 +173,7 @@ window.UI = (function () {
       btn.addEventListener('click', function () {
         var date = btn.getAttribute('data-date');
         var day = cal.days.filter(function (x) { return x.date === date; })[0];
-        showDayDetail(day);
+        showDayDetail(day, handlers);
       });
     });
   }
@@ -185,16 +185,46 @@ window.UI = (function () {
     return WORK_TYPE_LABEL[d.work_type] || '';
   }
 
-  function showDayDetail(d) {
+  function showDayDetail(d, handlers) {
     if (!d) return;
     var box = document.getElementById('day-detail');
+
+    // すでに休日出勤/代休が入っている、または申請中なら追加不可
+    var alreadySet = (d.work_type === 'holiday_work' || d.work_type === 'compensatory_leave');
+    var isPending = (d.status === 'pending');
+
+    var actions = '';
+    if (isPending) {
+      actions = '<p class="muted small">この日は申請中です。</p>';
+    } else if (alreadySet) {
+      actions = '<p class="muted small">この日は' + esc(WORK_TYPE_LABEL[d.work_type]) + 'として登録済みです。</p>';
+    } else {
+      actions =
+        '<div class="detail-actions">' +
+        '<button id="add-hw" class="btn btn-primary" data-date="' + esc(d.date) + '">この日に休日出勤を申請</button>' +
+        '<button id="add-cl" class="btn btn-outline" data-date="' + esc(d.date) + '">この日に代休を申請</button>' +
+        '</div>';
+    }
+
     box.innerHTML =
       '<h3>' + esc(d.date) + '</h3>' +
       '<p>区分: ' + esc(WORK_TYPE_LABEL[d.work_type] || d.work_type) +
         (d.holiday_name ? '（' + esc(d.holiday_name) + '）' : '') + '</p>' +
       (d.start_time ? '<p>時間: ' + esc(d.start_time) + ' 〜 ' + esc(d.end_time) + '</p>' : '') +
       '<p>状態: ' + (d.status === 'pending' ? '申請中' : '確定') + '</p>' +
-      (d.remarks ? '<p>備考: ' + esc(d.remarks) + '</p>' : '');
+      (d.remarks ? '<p>備考: ' + esc(d.remarks) + '</p>' : '') +
+      actions;
+
+    if (handlers) {
+      var hw = document.getElementById('add-hw');
+      if (hw && handlers.onAddHolidayWork) {
+        hw.addEventListener('click', function () { handlers.onAddHolidayWork(d.date); });
+      }
+      var cl = document.getElementById('add-cl');
+      if (cl && handlers.onAddCompLeave) {
+        cl.addEventListener('click', function () { handlers.onAddCompLeave(d.date); });
+      }
+    }
   }
 
   function legend() {
@@ -234,7 +264,7 @@ window.UI = (function () {
   }
 
   /* ---- 代休申請 ---- */
-  function renderCompLeaveForm(leaves, handlers) {
+  function renderCompLeaveForm(leaves, handlers, defaultDate) {
     var options = leaves.length
       ? leaves.map(function (l) {
           return '<label class="leave-opt"><input type="radio" name="leave" value="' + esc(l.leave_id) + '">' +
@@ -247,7 +277,7 @@ window.UI = (function () {
       '<section class="screen"><div class="card">' +
       '<label class="field-label">使用する代休</label>' +
       '<div class="leave-list">' + options + '</div>' +
-      field('取得希望日', '<input id="cl-date" class="input" type="date">') +
+      field('取得希望日', '<input id="cl-date" class="input" type="date" value="' + esc(defaultDate || '') + '">') +
       field('備考（任意）', '<textarea id="cl-remarks" class="input" rows="2"></textarea>') +
       '<button id="cl-submit" class="btn btn-primary"' + (leaves.length ? '' : ' disabled') + '>確認する</button>' +
       '</div></section>';
