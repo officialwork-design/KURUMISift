@@ -27,6 +27,7 @@ function parseRequest(e) {
   var p = (e && e.parameter) ? e.parameter : {};
   return {
     action: body.action || p.action || '',
+    accessToken: body.accessToken || p.accessToken || '',
     idToken: body.idToken || p.idToken || '',
     payload: body.payload || {}
   };
@@ -37,7 +38,10 @@ function parseRequest(e) {
  * employee は未登録なら null。
  */
 function buildSession(req) {
-  var profile = verifyIdToken(req.idToken); // 失敗時 INVALID_TOKEN / UNAUTHENTICATED
+  // アクセストークン優先（自動更新で失効しにくい）。無ければ IDトークンにフォールバック。
+  var profile = req.accessToken
+    ? verifyAccessToken(req.accessToken)
+    : verifyIdToken(req.idToken);
   var employee = findEmployeeByLineUserId(profile.lineUserId);
   return { profile: profile, employee: employee };
 }

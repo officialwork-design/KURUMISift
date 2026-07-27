@@ -78,7 +78,9 @@ function verifyIdToken(idToken) {
     var code = res.getResponseCode();
     var body = JSON.parse(res.getContentText() || '{}');
     if (code !== 200 || !body.sub) {
-      throw new AppError(ERROR_CODES.INVALID_TOKEN, 'IDトークンの検証に失敗しました。再ログインしてください。');
+      var detail = body.error_description || body.error || ('HTTP ' + code);
+      throw new AppError(ERROR_CODES.INVALID_TOKEN,
+        'IDトークンの検証に失敗しました（' + detail + '）。再ログインしてください。');
     }
     // body.sub が LINE ユーザーID
     return {
@@ -89,5 +91,55 @@ function verifyIdToken(idToken) {
   } catch (e) {
     if (e instanceof AppError) throw e;
     throw new AppError(ERROR_CODES.INVALID_TOKEN, 'IDトークンの検証に失敗しました。');
+  }
+}
+
+/**
+ * LIFF アクセストークンを検証し、プロフィール（ユーザーID等）を返す。
+ * アクセストークンは liff が自動更新するため、IDトークンより失効しにくい（推奨）。
+ * 1) /oauth2/v2.1/verify?access_token=... で有効性と client_id を確認
+ * 2) /v2/profile でユーザーID・表示名・画像を取得
+ * 失敗時は INVALID_TOKEN / UNAUTHENTICATED 例外。
+ */
+function verifyAccessToken(accessToken) {
+  if (!accessToken) {
+    throw new AppError(ERROR_CODES.UNAUTHENTICATED, 'アクセストークンがありません。再ログインしてください。');
+  }
+  try {
+    var vr = UrlFetchApp.fetch(
+      'https://api.line.me/oauth2/v2.1/verify?access_token=' + encodeURIComponent(accessToken),
+      { method: 'get', muteHttpExceptions: true });
+    var vc = vr.getResponseCode();
+    var vb = JSON.parse(vr.getContentText() || '{}');
+    if (vc !== 200) {
+      var d = vb.error_description || vb.error || ('HTTP ' + vc);
+      throw new AppError(ERROR_CODES.INVALID_TOKEN,
+        'アクセストークンの検証に失敗しました（' + d + '）。再ログインしてください。');
+    }
+    // チャネルID整合性チェック（設定があれば）
+    var channelId = getProp(PROP.LINE_CHANNEL_ID);
+    if (channelId && vb.client_id && String(vb.client_id) !== String(channelId)) {
+      throw new AppError(ERROR_CODES.INVALID_TOKEN,
+        'アクセストークンのチャネルIDが一致しません（client_id=' + vb.client_id + '）。');
+    }
+    // プロフィール取得
+    var pr = UrlFetchApp.fetch('https://api.line.me/v2/profile', {
+      method: 'get', muteHttpExceptions: true,
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    var pc = pr.getResponseCode();
+    var pb = JSON.parse(pr.getContentText() || '{}');
+    if (pc !== 200 || !pb.userId) {
+      var pd = pb.message || ('HTTP ' + pc);
+      throw new AppError(ERROR_CODES.INVALID_TOKEN, 'プロフィール取得に失敗しました（' + pd + '）。');
+    }
+    return {
+      lineUserId: pb.userId,
+      displayName: pb.displayName || '',
+      pictureUrl: pb.pictureUrl || ''
+    };
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    throw new AppError(ERROR_CODES.INVALID_TOKEN, 'アクセストークンの検証に失敗しました。');
   }
 }

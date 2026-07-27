@@ -5,6 +5,7 @@
  */
 window.LiffClient = (function () {
   var _idToken = null;
+  var _accessToken = null;
   var _profile = null;
 
   function withTimeout(promise, ms, message) {
@@ -94,6 +95,7 @@ window.LiffClient = (function () {
           // ログイン成功。ループ防止フラグを解除。
           try { sessionStorage.removeItem('liff_login_attempted'); } catch (e) {}
           _idToken = liff.getIDToken();
+          _accessToken = liff.getAccessToken(); // 認証はこちら（自動更新され失効しにくい）
           return liff.getProfile();
         }).then(function (profile) {
           _profile = profile ? {
@@ -108,6 +110,11 @@ window.LiffClient = (function () {
       );
     },
     getIdToken: function () { return _idToken; },
+    getAccessToken: function () {
+      // 呼び出しのたびに最新を取得（liff が自動更新するため）
+      try { if (typeof liff !== 'undefined' && liff.getAccessToken) { _accessToken = liff.getAccessToken(); } } catch (e) {}
+      return _accessToken;
+    },
     getProfile: function () { return _profile; },
     isInClient: function () { return typeof liff !== 'undefined' && liff.isInClient && liff.isInClient(); },
     /**

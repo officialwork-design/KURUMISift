@@ -51,7 +51,8 @@ window.Api = (function () {
     if (!opts.silent) window.AppState.set({ loading: true });
     var body = {
       action: action,
-      idToken: window.LiffClient.getIdToken(),
+      accessToken: window.LiffClient.getAccessToken(), // 認証はアクセストークン（自動更新で失効しにくい）
+      idToken: window.LiffClient.getIdToken(),          // 後方互換のため併送
       payload: payload || {}
     };
 
