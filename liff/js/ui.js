@@ -163,8 +163,9 @@ window.UI = (function () {
       '</div>' +
       '<div class="cal-weekhead"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>' +
       '<div class="cal-grid">' + cells + '</div>' +
-      '<div class="legend">' + legend() + '</div>' +
+      '<p class="cal-hint">日付をタップすると、その日に休日出勤・代休を申請できます。</p>' +
       '<div id="day-detail" class="day-detail"></div>' +
+      '<div class="legend">' + legend() + '</div>' +
       '</section>';
     wireBack(handlers.onBack);
     document.getElementById('cal-prev').addEventListener('click', handlers.onPrev);
@@ -225,6 +226,8 @@ window.UI = (function () {
         cl.addEventListener('click', function () { handlers.onAddCompLeave(d.date); });
       }
     }
+    // タップした日の詳細・申請ボタンが画面外にならないよう表示位置へスクロール
+    try { box.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
   }
 
   function legend() {
