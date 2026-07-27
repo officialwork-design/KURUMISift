@@ -75,17 +75,13 @@
     renderHomeFor(now.getFullYear(), now.getMonth() + 1);
   }
 
-  // ホーム本体＋当月カレンダーを取得して描画
+  // ホーム本体＋当月カレンダーを1回のAPIで取得して描画（往復削減で安定化）
   function renderHomeFor(year, month) {
-    var homeData;
-    Api.call('getHome', {})
-      .then(function (home) {
-        homeData = home;
-        return Api.call('getCalendar', { year: year, month: month }, { silent: true });
-      })
-      .then(function (cal) {
-        S.set({ employee: homeData.employee, calendar: cal, currentYear: year, currentMonth: month, screen: 'home' });
-        UI.renderHome(homeData, cal, homeHandlers(year, month));
+    Api.call('getHomeCalendar', { year: year, month: month })
+      .then(function (res) {
+        var home = res.home, cal = res.calendar;
+        S.set({ employee: home.employee, calendar: cal, currentYear: year, currentMonth: month, screen: 'home' });
+        UI.renderHome(home, cal, homeHandlers(year, month));
       })
       .catch(fail);
   }

@@ -5,7 +5,7 @@
  */
 
 /** ビルドバージョン。デプロイ反映確認用（?action=getConfig で確認できる）。 */
-var APP_BUILD = 'v9-2026-07-27-accesstoken-auth';
+var APP_BUILD = 'v10-2026-07-27-homecalendar-combined';
 
 /** スクリプトプロパティ名 */
 var PROP = {
@@ -153,6 +153,7 @@ var ACTIONS = {
   GET_ME: 'getMe',
   // 社員向け
   GET_HOME: 'getHome',
+  GET_HOME_CALENDAR: 'getHomeCalendar', // ホーム集計＋カレンダーを1回で返す
   GET_CALENDAR: 'getCalendar',
   CREATE_HOLIDAY_WORK: 'createHolidayWork',
   CREATE_COMP_LEAVE: 'createCompLeave',

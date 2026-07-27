@@ -98,6 +98,17 @@ function dispatch(req) {
       var y = parseInt(payload.year, 10), m = parseInt(payload.month, 10);
       return apiOk(getMonthlySchedule(meC.employee_id, y, m));
     }
+    // ホーム集計 + 指定月カレンダーを1回のリクエストで返す（往復と認証コストを削減）
+    case A.GET_HOME_CALENDAR: {
+      var meHC = requireActiveEmployee(session);
+      var now = new Date();
+      var hcY = parseInt(payload.year, 10) || now.getFullYear();
+      var hcM = parseInt(payload.month, 10) || (now.getMonth() + 1);
+      return apiOk({
+        home: buildHome(meHC),
+        calendar: getMonthlySchedule(meHC.employee_id, hcY, hcM)
+      });
+    }
     case A.CREATE_HOLIDAY_WORK: {
       var meHW = requireActiveEmployee(session);
       return apiOk({ request: createHolidayWorkRequest(meHW, payload) });

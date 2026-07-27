@@ -15,8 +15,8 @@ window.APP_CONFIG = {
   // GAS Web アプリのデプロイURL（/exec で終わるURL）
   API_URL: 'https://script.google.com/macros/s/AKfycbzzQW4YzQg1DyTUvdBZLiO1D1tECVjvqId2WwkvbXVKvmiPU56xBC4BtFiKb_GHurun/exec',
 
-  // 通信タイムアウト（ミリ秒）
-  TIMEOUT_MS: 15000,
+  // 通信タイムアウト（ミリ秒）。GASのコールドスタートを考慮して長めに。
+  TIMEOUT_MS: 30000,
 
   // LIFF 初期化タイムアウト（ミリ秒）— これを超えたらエラー画面へ
   INIT_TIMEOUT_MS: 12000
