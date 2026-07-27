@@ -5,7 +5,7 @@
  */
 
 /** ビルドバージョン。デプロイ反映確認用（?action=getConfig で確認できる）。 */
-var APP_BUILD = 'v13-2026-07-27-no-leave-expiry';
+var APP_BUILD = 'v14-2026-07-27-fix-iso-time-strings';
 
 /** スクリプトプロパティ名 */
 var PROP = {

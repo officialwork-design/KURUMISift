@@ -93,13 +93,34 @@ var DATE_COLUMNS = {
   used_date: true, preferred_compensatory_date: true
 };
 
-/** Sheetsが日付/時刻に自動変換したDate値を、想定の文字列形式へ正規化する */
+/**
+ * Sheetsが日付/時刻に自動変換したDate値、および過去に文字列として保存された
+ * ISO日時（例 "1899-12-30T01:00:00.000Z"）を、想定の文字列形式へ正規化する。
+ */
 function normalizeCellValue(header, v) {
-  if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime())) {
-    if (TIME_COLUMNS[header]) return Utilities.formatDate(v, tz(), 'HH:mm');
-    if (DATE_COLUMNS[header]) return Utilities.formatDate(v, tz(), 'yyyy-MM-dd');
-    return v.toISOString(); // その他のDateはISO文字列に
+  var isDate = Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime());
+
+  if (TIME_COLUMNS[header]) {
+    if (isDate) return Utilities.formatDate(v, tz(), 'HH:mm');
+    var ts = String(v == null ? '' : v);
+    if (ts.indexOf('T') !== -1) { // ISO日時っぽい文字列（過去の不正データ）
+      var td = new Date(ts);
+      if (!isNaN(td.getTime())) return Utilities.formatDate(td, tz(), 'HH:mm');
+    }
+    return ts; // 既に "HH:mm" 等
   }
+
+  if (DATE_COLUMNS[header]) {
+    if (isDate) return Utilities.formatDate(v, tz(), 'yyyy-MM-dd');
+    var ds = String(v == null ? '' : v);
+    if (ds.indexOf('T') !== -1) {
+      var dd = new Date(ds);
+      if (!isNaN(dd.getTime())) return Utilities.formatDate(dd, tz(), 'yyyy-MM-dd');
+    }
+    return ds;
+  }
+
+  if (isDate) return v.toISOString(); // その他のDateはISO文字列に
   return v;
 }
 
