@@ -10,7 +10,23 @@
 
   function fail(err) {
     var msg = (err && err.message) ? err.message : 'エラーが発生しました。';
-    UI.renderError(msg, boot);
+    var code = err && err.code;
+
+    // IDトークン失効/未認証は、一度だけ自動で再ログインしてトークンを取り直す
+    if (code === 'INVALID_TOKEN' || code === 'UNAUTHENTICATED') {
+      var tried = false;
+      try { tried = sessionStorage.getItem('token_relogin_done') === '1'; } catch (e) {}
+      if (!tried) {
+        try { sessionStorage.setItem('token_relogin_done', '1'); } catch (e) {}
+        UI.setLoading(true, '再ログインしています...');
+        LiffClient.relogin();
+        return;
+      }
+    }
+    UI.renderError(msg, function () {
+      try { sessionStorage.removeItem('token_relogin_done'); } catch (e) {}
+      boot();
+    });
   }
 
   /* ---- 起動 ---- */
@@ -22,6 +38,8 @@
         return Api.call('bootstrap', {}, { silent: true });
       })
       .then(function (data) {
+        // 認証成功。再ログインガードを解除。
+        try { sessionStorage.removeItem('token_relogin_done'); } catch (e) {}
         S.set({ registered: data.registered, employee: data.employee, profile: data.profile || S.get().profile });
         UI.setLoading(false);
         if (!data.registered) return showRegister();

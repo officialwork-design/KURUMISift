@@ -78,7 +78,9 @@ function verifyIdToken(idToken) {
     var code = res.getResponseCode();
     var body = JSON.parse(res.getContentText() || '{}');
     if (code !== 200 || !body.sub) {
-      throw new AppError(ERROR_CODES.INVALID_TOKEN, 'IDトークンの検証に失敗しました。再ログインしてください。');
+      var detail = body.error_description || body.error || ('HTTP ' + code);
+      throw new AppError(ERROR_CODES.INVALID_TOKEN,
+        'IDトークンの検証に失敗しました（' + detail + '）。再ログインしてください。');
     }
     // body.sub が LINE ユーザーID
     return {

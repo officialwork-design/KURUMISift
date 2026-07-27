@@ -109,6 +109,15 @@ window.LiffClient = (function () {
     },
     getIdToken: function () { return _idToken; },
     getProfile: function () { return _profile; },
-    isInClient: function () { return typeof liff !== 'undefined' && liff.isInClient && liff.isInClient(); }
+    isInClient: function () { return typeof liff !== 'undefined' && liff.isInClient && liff.isInClient(); },
+    /** IDトークン失効時などに、ログインし直して新しいトークンを取得する */
+    relogin: function () {
+      try { sessionStorage.removeItem('liff_login_attempted'); } catch (e) {}
+      if (typeof liff !== 'undefined' && liff.login) {
+        liff.login();
+      } else {
+        location.reload();
+      }
+    }
   };
 })();
