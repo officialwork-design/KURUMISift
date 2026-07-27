@@ -111,7 +111,7 @@
     return {
       availableLeaves: _availableLeaves,
       onHistory: function () { showHistory('all'); },
-      onAdmin: function () { showAdminMenu(); },
+      onAdmin: function () { showAdminBalances(); },
       onAddHolidayWork: function (date) { showHolidayWork(date); },
       onAddCompLeave: function (date) { showCompLeave(date); },
       onPrevMonth: function () { var m = shift(year, month, -1); reloadHomeCalendar(m.y, m.m); },
@@ -201,6 +201,26 @@
   }
 
   /* ---- 管理者（LIFF内に統合。role=admin のみ。GAS側でも権限検証） ---- */
+  // 全社員の残数一覧（管理者トップ）
+  function showAdminBalances() {
+    Api.call('adminBalances', {}).then(function (data) {
+      UI.renderAdminBalances(data.balances, {
+        onBack: showHome,
+        onEdit: function (b) {
+          var paid = window.prompt(b.real_name + ' さんの有給残日数（0以上）:', b.paidLeaveBalance);
+          if (paid === null) return;
+          var role = window.prompt('権限 (employee / admin):', b.role); if (role === null) return;
+          var status = window.prompt('状態 (active / suspended / retired):', b.status); if (status === null) return;
+          Api.call('adminUpdateEmployee', {
+            employee_id: b.employee_id,
+            patch: { paid_leave_balance: paid, role: role, status: status }
+          }).then(function () { UI.toast('更新しました。'); showAdminBalances(); })
+            .catch(function (e) { UI.toast(e.message, true); });
+        }
+      });
+    }).catch(fail);
+  }
+
   function showAdminMenu() {
     S.set({ screen: 'adminMenu' });
     UI.renderAdminMenu({

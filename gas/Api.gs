@@ -135,6 +135,10 @@ function dispatch(req) {
     }
 
     // --- 管理者向け ---
+    case A.ADMIN_BALANCES: {
+      var admB = requireActiveEmployee(session); requireAdmin(admB);
+      return apiOk({ balances: buildBalances() });
+    }
     case A.ADMIN_LIST_EMPLOYEES: {
       var adm1 = requireActiveEmployee(session); requireAdmin(adm1);
       return apiOk({ employees: listEmployees() });
@@ -231,6 +235,36 @@ function buildAdminDashboard() {
     leavesExpiringWithin7: 0,
     expiredLeaves: expired
   };
+}
+
+/** 全社員の残数（休日出勤・有給・代休）を集計して返す */
+function buildBalances() {
+  var emps = listEmployees();
+  var leaves = findRows(SHEET.LEAVES, function () { return true; }).map(function (r) { return r.data; });
+  var byEmp = {};
+  leaves.forEach(function (l) {
+    var id = String(l.employee_id);
+    if (!byEmp[id]) byEmp[id] = { granted: 0, available: 0, used: 0 };
+    byEmp[id].granted++;
+    if (String(l.status) === LEAVE_STATUS.AVAILABLE) byEmp[id].available++;
+    else if (String(l.status) === LEAVE_STATUS.USED) byEmp[id].used++;
+  });
+  return emps
+    .filter(function (e) { return String(e.status) !== EMP_STATUS.RETIRED; })
+    .map(function (e) {
+      var b = byEmp[String(e.employee_id)] || { granted: 0, available: 0, used: 0 };
+      return {
+        employee_id: e.employee_id,
+        real_name: e.real_name,
+        department: e.department || '',
+        role: e.role,
+        status: e.status,
+        holidayWorkCount: b.granted,   // 休日出勤（＝代休付与）回数
+        compAvailable: b.available,    // 代休残
+        compUsed: b.used,              // 代休使用済み
+        paidLeaveBalance: Number(e.paid_leave_balance || 0) // 有給残
+      };
+    });
 }
 
 /** 管理者用申請一覧に社員名を付与 */

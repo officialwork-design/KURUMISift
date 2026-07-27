@@ -384,6 +384,36 @@ window.UI = (function () {
   };
   var EMP_STATUS_LABEL = { active: '有効', suspended: '停止', retired: '退職' };
 
+  // 全社員の残数一覧（休日出勤・有給・代休）
+  function renderAdminBalances(balances, handlers) {
+    var list = balances.length ? balances.map(function (b) {
+      return '<div class="hist-card">' +
+        '<div class="hist-head"><span class="hist-type">' + esc(b.real_name) +
+        (b.department ? '（' + esc(b.department) + '）' : '') + '</span>' +
+        '<span class="status-pill emp-' + esc(b.status) + '">' + esc(EMP_STATUS_LABEL[b.status] || b.status) + '</span></div>' +
+        '<div class="hist-body">' +
+        '<div class="bal-row">' +
+          '<span class="bal"><b>' + esc(b.holidayWorkCount) + '</b><small>休日出勤</small></span>' +
+          '<span class="bal"><b>' + esc(b.paidLeaveBalance) + '</b><small>有給残</small></span>' +
+          '<span class="bal"><b>' + esc(b.compAvailable) + '</b><small>代休残</small></span>' +
+          '<span class="bal"><b>' + esc(b.compUsed) + '</b><small>代休使用</small></span>' +
+        '</div>' +
+        (b.role === 'admin' ? '<p class="muted small">権限: 管理者</p>' : '') +
+        '<button class="btn btn-outline" data-edit="' + esc(b.employee_id) + '">編集</button>' +
+        '</div></div>';
+    }).join('') : '<p class="muted center">社員がいません。</p>';
+    app().innerHTML = backBar('全社員の残数') +
+      '<section class="screen"><p class="muted small">休日出勤・有給残・代休残・代休使用の一覧です。</p>' +
+      '<div class="hist-list">' + list + '</div></section>';
+    wireBack(handlers.onBack);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var b = balances.filter(function (x) { return x.employee_id === btn.getAttribute('data-edit'); })[0];
+        handlers.onEdit(b);
+      });
+    });
+  }
+
   function renderAdminMenu(handlers) {
     app().innerHTML =
       backBar('管理者メニュー') +
@@ -524,6 +554,7 @@ window.UI = (function () {
     renderHome: renderHome, updateHomeCalendar: updateHomeCalendar,
     renderHolidayWorkForm: renderHolidayWorkForm, renderCompLeaveForm: renderCompLeaveForm,
     confirmDialog: confirmDialog, renderDone: renderDone, renderHistory: renderHistory,
+    renderAdminBalances: renderAdminBalances,
     renderAdminMenu: renderAdminMenu, renderAdminDashboard: renderAdminDashboard,
     renderAdminRequests: renderAdminRequests, renderAdminEmployees: renderAdminEmployees,
     renderAdminLeaves: renderAdminLeaves, renderAdminSettings: renderAdminSettings,

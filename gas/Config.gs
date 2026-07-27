@@ -5,7 +5,7 @@
  */
 
 /** ビルドバージョン。デプロイ反映確認用（?action=getConfig で確認できる）。 */
-var APP_BUILD = 'v14-2026-07-27-fix-iso-time-strings';
+var APP_BUILD = 'v15-2026-07-27-admin-balances';
 
 /** スクリプトプロパティ名 */
 var PROP = {
@@ -160,6 +160,7 @@ var ACTIONS = {
   GET_MY_REQUESTS: 'getMyRequests',
   GET_AVAILABLE_LEAVES: 'getAvailableLeaves',
   // 管理者向け
+  ADMIN_BALANCES: 'adminBalances', // 全社員の残数（休日出勤・有給・代休）一覧
   ADMIN_LIST_EMPLOYEES: 'adminListEmployees',
   ADMIN_UPDATE_EMPLOYEE: 'adminUpdateEmployee',
   ADMIN_SET_EMPLOYEE_STATUS: 'adminSetEmployeeStatus',
