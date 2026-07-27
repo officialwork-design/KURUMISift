@@ -193,6 +193,7 @@ function buildHome(emp) {
     regularWorkDays: s.regularWorkDays,
     holidayWorkDays: s.holidayWorkDays,
     availableLeaves: countAvailableLeaves(emp.employee_id),
+    paidLeaveBalance: Number(emp.paid_leave_balance || 0),
     pendingRequests: pendingCount,
     leavesExpiringSoon: countLeavesExpiringWithin(emp.employee_id, 14)
   };

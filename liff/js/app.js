@@ -75,11 +75,14 @@
     renderHomeFor(now.getFullYear(), now.getMonth() + 1);
   }
 
+  var _availableLeaves = 0; // 代休残（残ゼロ時の案内に使用）
+
   // ホーム本体＋当月カレンダーを1回のAPIで取得して描画（往復削減で安定化）
   function renderHomeFor(year, month) {
     Api.call('getHomeCalendar', { year: year, month: month })
       .then(function (res) {
         var home = res.home, cal = res.calendar;
+        _availableLeaves = home.availableLeaves || 0;
         S.set({ employee: home.employee, calendar: cal, currentYear: year, currentMonth: month, screen: 'home' });
         UI.renderHome(home, cal, homeHandlers(year, month));
       })
@@ -98,6 +101,7 @@
 
   function homeHandlers(year, month) {
     return {
+      availableLeaves: _availableLeaves,
       onHistory: function () { showHistory('all'); },
       onAddHolidayWork: function (date) { showHolidayWork(date); },
       onAddCompLeave: function (date) { showCompLeave(date); },

@@ -111,8 +111,7 @@ window.UI = (function () {
       '<div class="stat-grid">' +
         stat('今月の通常勤務', home.regularWorkDays + ' 日') +
         stat('今月の休日出勤', home.holidayWorkDays + ' 日') +
-        stat('申請中', home.pendingRequests + ' 件') +
-        stat('期限が近い代休', home.leavesExpiringSoon + ' 日') +
+        stat('有給残', (home.paidLeaveBalance || 0) + ' 日') +
       '</div>' +
       '<h3 class="section-title">勤務カレンダー</h3>' +
       '<div id="home-cal"></div>' +
@@ -120,6 +119,8 @@ window.UI = (function () {
         '<button id="h-hist" class="btn btn-outline">申請履歴</button>' +
       '</div></section>';
     document.getElementById('h-hist').addEventListener('click', handlers.onHistory);
+    // カレンダーへ代休残数を渡す（残ゼロ時の案内に使用）
+    handlers.availableLeaves = home.availableLeaves;
     renderCalendarInto('home-cal', cal, handlers);
   }
 
@@ -196,16 +197,21 @@ window.UI = (function () {
     var alreadySet = (d.work_type === 'holiday_work' || d.work_type === 'compensatory_leave');
     var isPending = (d.status === 'pending');
 
+    var hasLeaves = !handlers || Number(handlers.availableLeaves || 0) > 0;
     var actions = '';
     if (isPending) {
       actions = '<p class="muted small">この日は申請中です。</p>';
     } else if (alreadySet) {
       actions = '<p class="muted small">この日は' + esc(WORK_TYPE_LABEL[d.work_type]) + 'として登録済みです。</p>';
     } else {
+      var clBtn = hasLeaves
+        ? '<button id="add-cl" class="btn btn-outline" data-date="' + esc(d.date) + '">この日に代休を申請</button>'
+        : '<button id="add-cl-disabled" class="btn btn-outline btn-disabled" disabled>代休を申請（残 0 日）</button>' +
+          '<p class="muted small">代休がありません。先に「この日に休日出勤を申請」で休日出勤を登録すると、代休が1日付与されます。</p>';
       actions =
         '<div class="detail-actions">' +
         '<button id="add-hw" class="btn btn-primary" data-date="' + esc(d.date) + '">この日に休日出勤を申請</button>' +
-        '<button id="add-cl" class="btn btn-outline" data-date="' + esc(d.date) + '">この日に代休を申請</button>' +
+        clBtn +
         '</div>';
     }
 

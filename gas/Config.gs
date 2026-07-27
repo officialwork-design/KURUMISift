@@ -5,7 +5,7 @@
  */
 
 /** ビルドバージョン。デプロイ反映確認用（?action=getConfig で確認できる）。 */
-var APP_BUILD = 'v10-2026-07-27-homecalendar-combined';
+var APP_BUILD = 'v11-2026-07-27-paidleave-homeclean';
 
 /** スクリプトプロパティ名 */
 var PROP = {
@@ -68,7 +68,7 @@ var SCHEMA = {};
 SCHEMA[SHEET.EMPLOYEES] = [
   'employee_id', 'line_user_id', 'line_display_name', 'line_picture_url',
   'real_name', 'department', 'role', 'status',
-  'created_at', 'updated_at', 'last_login_at'
+  'created_at', 'updated_at', 'last_login_at', 'paid_leave_balance'
 ];
 SCHEMA[SHEET.REQUESTS] = [
   'request_id', 'employee_id', 'request_type', 'target_date',

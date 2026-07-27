@@ -138,12 +138,13 @@
           '<td>' + esc(e.department || '') + '</td>' +
           '<td>' + esc(e.role) + '</td>' +
           '<td><span class="pill emp-' + esc(e.status) + '">' + esc(EMP_STATUS_LABEL[e.status] || e.status) + '</span></td>' +
+          '<td>' + esc(e.paid_leave_balance != null ? e.paid_leave_balance : 0) + ' 日</td>' +
           '<td class="muted small">' + esc((e.last_login_at || '').slice(0, 10)) + '</td>' +
           '<td class="act"><button class="btn sm" data-edit="' + esc(e.employee_id) + '">編集</button></td>' +
           '</tr>';
       }).join('');
       main().innerHTML = '<div class="panel"><h2>社員一覧</h2><div class="table-wrap"><table>' +
-        '<thead><tr><th>氏名</th><th>部署</th><th>権限</th><th>状態</th><th>最終ログイン</th><th>操作</th></tr></thead>' +
+        '<thead><tr><th>氏名</th><th>部署</th><th>権限</th><th>状態</th><th>有給残</th><th>最終ログイン</th><th>操作</th></tr></thead>' +
         '<tbody>' + rows + '</tbody></table></div></div>';
       document.querySelectorAll('[data-edit]').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -163,9 +164,11 @@
     if (role === null) return;
     var status = window.prompt('状態 (active / suspended / retired):', emp.status);
     if (status === null) return;
+    var paid = window.prompt('有給残日数（0以上の数値）:', emp.paid_leave_balance != null ? emp.paid_leave_balance : 0);
+    if (paid === null) return;
     AdminApi.call('adminUpdateEmployee', {
       employee_id: emp.employee_id,
-      patch: { real_name: name, department: dept, role: role, status: status }
+      patch: { real_name: name, department: dept, role: role, status: status, paid_leave_balance: paid }
     }).then(function () { toast('更新しました。'); showEmployees(); })
       .catch(function (e) { toast(e.message, true); });
   }

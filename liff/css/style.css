@@ -116,6 +116,7 @@ textarea.input{resize:vertical;}
 .day-detail:empty{display:none;}
 .day-detail{background:#f0fbf4;border:1px solid var(--green);border-radius:10px;padding:12px;margin:8px 0;}
 .detail-actions{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.btn-disabled,.btn:disabled{opacity:.45;cursor:not-allowed;}
 
 /* 代休選択 */
 .leave-list{display:flex;flex-direction:column;gap:8px;margin-top:6px;}

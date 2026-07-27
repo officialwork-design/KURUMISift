@@ -46,7 +46,8 @@ function registerEmployee(profile, realName) {
     status: EMP_STATUS.ACTIVE,
     created_at: now,
     updated_at: now,
-    last_login_at: now
+    last_login_at: now,
+    paid_leave_balance: 0
   };
   appendRow(SHEET.EMPLOYEES, emp);
   logAction(emp.employee_id, ACTION_TYPE.REGISTER_EMPLOYEE, 'employee', emp.employee_id, null, emp);
@@ -69,11 +70,16 @@ function listEmployees() {
 
 /** 社員情報更新（管理者用）。real_name もここでのみ変更可。 */
 function adminUpdateEmployee(employeeId, patch) {
-  var allowed = ['real_name', 'department', 'role', 'status'];
+  var allowed = ['real_name', 'department', 'role', 'status', 'paid_leave_balance'];
   var clean = {};
   allowed.forEach(function (k) {
     if (patch[k] !== undefined) clean[k] = patch[k];
   });
+  if (clean.paid_leave_balance !== undefined) {
+    var pv = Number(clean.paid_leave_balance);
+    if (isNaN(pv) || pv < 0) throw new AppError(ERROR_CODES.VALIDATION, '有給残日数は0以上の数値で入力してください。');
+    clean.paid_leave_balance = pv;
+  }
   if (clean.real_name !== undefined) {
     var v = validateName(clean.real_name);
     if (!v.ok) throw new AppError(ERROR_CODES.VALIDATION, v.message);
@@ -125,6 +131,7 @@ function employeeDto(emp) {
     department: emp.department,
     role: emp.role,
     status: emp.status,
-    last_login_at: emp.last_login_at
+    last_login_at: emp.last_login_at,
+    paid_leave_balance: Number(emp.paid_leave_balance || 0)
   };
 }
