@@ -17,6 +17,27 @@ window.LiffClient = (function () {
     });
   }
 
+  /** 診断情報を1行にまとめる（原因切り分け用） */
+  function collectDiagnostics() {
+    var parts = [];
+    try { parts.push('inLINE=' + (liff.isInClient ? liff.isInClient() : '?')); } catch (e) { parts.push('inLINE=err'); }
+    try { parts.push('os=' + (liff.getOS ? liff.getOS() : '?')); } catch (e) {}
+    try { parts.push('liffVer=' + (liff.getVersion ? liff.getVersion() : '?')); } catch (e) {}
+    try {
+      var q = new URLSearchParams(window.location.search);
+      parts.push('hasCode=' + (q.get('code') ? 'yes' : 'no'));
+      parts.push('hasLiffState=' + (q.get('liff.state') || q.get('liffRedirectUri') ? 'yes' : 'no'));
+    } catch (e) {}
+    var ss = 'ng';
+    try { sessionStorage.setItem('__t', '1'); sessionStorage.removeItem('__t'); ss = 'ok'; } catch (e) { ss = 'blocked'; }
+    parts.push('sessionStorage=' + ss);
+    var cookie = 'ng';
+    try { cookie = navigator.cookieEnabled ? 'ok' : 'blocked'; } catch (e) {}
+    parts.push('cookie=' + cookie);
+    parts.push('url=' + window.location.href);
+    return '[診断] ' + parts.join(' , ');
+  }
+
   /** LIFF ID を解決（config or GAS getConfig） */
   function resolveLiffId() {
     var cfg = window.APP_CONFIG || {};
@@ -44,20 +65,30 @@ window.LiffClient = (function () {
           return liff.init({ liffId: liffId });
         }).then(function () {
           if (!liff.isLoggedIn()) {
+            // LINE ログイン失敗時、LINE は URL に error / error_description を付けて戻す。
+            var q;
+            try { q = new URLSearchParams(window.location.search); } catch (e) { q = null; }
+            var lineErr = q ? q.get('error') : null;
+            var lineErrDesc = q ? q.get('error_description') : null;
+
             // 無限ログインループ防止：一度リダイレクトして戻っても未ログインなら中断する。
             var attempted = false;
             try { attempted = sessionStorage.getItem('liff_login_attempted') === '1'; } catch (e) {}
-            if (attempted) {
+
+            if (attempted || lineErr) {
               try { sessionStorage.removeItem('liff_login_attempted'); } catch (e) {}
               throw new Error(
                 'LINEログインが完了できませんでした。\n' +
-                'このページは LINE アプリ内、または LIFF URL（https://liff.line.me/…）から開いてください。\n' +
-                '通常ブラウザで開く場合は、Cookie／トラッキング防止（シークレットモード等）でログイン状態が保持できないことがあります。'
+                'このページは LINE アプリ内、または LIFF URL（https://liff.line.me/2010856238-fSE3RDyL）から開いてください。\n' +
+                '通常ブラウザで開く場合は、Cookie／トラッキング防止（シークレットモード等）でログイン状態が保持できないことがあります。' +
+                (lineErr ? ('\n\n[LINEからのエラー] ' + lineErr +
+                  (lineErrDesc ? ' / ' + decodeURIComponent(lineErrDesc) : '')) : '') +
+                '\n\n' + collectDiagnostics()
               );
             }
             try { sessionStorage.setItem('liff_login_attempted', '1'); } catch (e) {}
-            // ログインへリダイレクト（戻り先を現在のURLに明示）
-            liff.login({ redirectUri: window.location.href });
+            // ログインへリダイレクト（既定の戻り先＝現在のエンドポイントURL）
+            liff.login();
             return new Promise(function () {}); // リダイレクト待ち
           }
           // ログイン成功。ループ防止フラグを解除。
