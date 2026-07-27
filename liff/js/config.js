@@ -10,10 +10,10 @@
  */
 window.APP_CONFIG = {
   // LINE Developers で発行した LIFF ID（例: 1234567890-abcdEFGH）
-  LIFF_ID: '',
+  LIFF_ID: '2010856238-fSE3RDyL',
 
   // GAS Web アプリのデプロイURL（/exec で終わるURL）
-  API_URL: '',
+  API_URL: 'https://script.google.com/macros/s/AKfycbzzQW4YzQg1DyTUvdBZLiO1D1tECVjvqId2WwkvbXVKvmiPU56xBC4BtFiKb_GHurun/exec',
 
   // 通信タイムアウト（ミリ秒）
   TIMEOUT_MS: 15000,
