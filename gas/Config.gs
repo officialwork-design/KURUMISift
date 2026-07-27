@@ -5,7 +5,7 @@
  */
 
 /** ビルドバージョン。デプロイ反映確認用（?action=getConfig で確認できる）。 */
-var APP_BUILD = 'v7-2026-07-27-autoapprove-holidays';
+var APP_BUILD = 'v8-2026-07-27-tokendetail-datetimefix';
 
 /** スクリプトプロパティ名 */
 var PROP = {
