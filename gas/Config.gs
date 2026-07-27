@@ -4,6 +4,9 @@
  * 併せて、シートスキーマ・列定義・状態定数・APIアクション名を集中管理する。
  */
 
+/** ビルドバージョン。デプロイ反映確認用（?action=getConfig で確認できる）。 */
+var APP_BUILD = 'v7-2026-07-27-autoapprove-holidays';
+
 /** スクリプトプロパティ名 */
 var PROP = {
   SPREADSHEET_ID: 'SPREADSHEET_ID',
