@@ -25,21 +25,6 @@ jobs:
           mkdir -p site
           cp -r liff site/liff
           cp -r admin site/admin
-          # ルートURL(404回避)用のリダイレクトページを生成し liff/ へ誘導
-          cat > site/index.html <<'EOF'
-          <!DOCTYPE html>
-          <html lang="ja">
-          <head>
-            <meta charset="utf-8" />
-            <title>KURUMI Shift</title>
-            <meta http-equiv="refresh" content="0; url=./liff/" />
-            <link rel="canonical" href="./liff/" />
-          </head>
-          <body>
-            <p>KURUMI Shift へ移動します… 自動で移動しない場合は <a href="./liff/">こちら</a>。</p>
-          </body>
-          </html>
-          EOF
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

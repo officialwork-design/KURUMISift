@@ -3,12 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- HTML をキャッシュさせない（LINE アプリ内ブラウザが古い画面を出し続けるのを防ぐ） -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
   <title>KURUMI Shift</title>
-  <link rel="stylesheet" href="css/style.css?v=7" />
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <!-- グローバルローディング -->
@@ -31,20 +27,11 @@
 
   <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <!--
-    アプリ用スクリプトはキャッシュバスティング付きで読み込む。
-    GitHub Pages / LINE アプリ内ブラウザが古い config.js をキャッシュして
-    「API_URL が未設定です」と誤表示するのを防ぐ。
-    document.write により、非同期化せず記述順どおりに実行される。
-  -->
-  <script>
-    (function () {
-      var v = Date.now();
-      var files = ['config', 'state', 'api', 'liff-client', 'ui', 'app'];
-      for (var i = 0; i < files.length; i++) {
-        document.write('<script src="js/' + files[i] + '.js?v=' + v + '"><\/script>');
-      }
-    })();
-  </script>
+  <script src="js/config.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/liff-client.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

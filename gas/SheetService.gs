@@ -85,29 +85,11 @@ function colIndex(headers, col) {
   return i;
 }
 
-/** 時刻として保持する列（Sheetsが時刻値=Dateにするため読み取り時にHH:mmへ戻す） */
-var TIME_COLUMNS = { start_time: true, end_time: true };
-/** 日付として保持する列（Sheetsが日付値=Dateにするため読み取り時にyyyy-MM-ddへ戻す） */
-var DATE_COLUMNS = {
-  target_date: true, work_date: true, expiration_date: true,
-  used_date: true, preferred_compensatory_date: true
-};
-
-/** Sheetsが日付/時刻に自動変換したDate値を、想定の文字列形式へ正規化する */
-function normalizeCellValue(header, v) {
-  if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime())) {
-    if (TIME_COLUMNS[header]) return Utilities.formatDate(v, tz(), 'HH:mm');
-    if (DATE_COLUMNS[header]) return Utilities.formatDate(v, tz(), 'yyyy-MM-dd');
-    return v.toISOString(); // その他のDateはISO文字列に
-  }
-  return v;
-}
-
-/** 行配列 -> オブジェクト（日付/時刻セルを正規化） */
+/** 行配列 -> オブジェクト */
 function rowToObject(headers, row) {
   var o = {};
   for (var i = 0; i < headers.length; i++) {
-    o[headers[i]] = normalizeCellValue(headers[i], row[i]);
+    o[headers[i]] = row[i];
   }
   return o;
 }

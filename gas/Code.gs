@@ -54,9 +54,7 @@ function getPublicConfig() {
   return {
     liffId: getProp(PROP.LIFF_ID, ''),
     appName: getSettingSafe('APP_NAME', 'KURUMI Shift'),
-    env: getProp(PROP.APP_ENV, 'development'),
-    version: APP_BUILD,
-    autoApprove: getSettingSafe('AUTO_APPROVE_REQUESTS', 'true')
+    env: getProp(PROP.APP_ENV, 'development')
   };
 }
 

@@ -110,9 +110,18 @@ window.LiffClient = (function () {
     getIdToken: function () { return _idToken; },
     getProfile: function () { return _profile; },
     isInClient: function () { return typeof liff !== 'undefined' && liff.isInClient && liff.isInClient(); },
-    /** IDトークン失効時などに、ログインし直して新しいトークンを取得する */
+    /**
+     * IDトークン失効時などに、必ず新しいトークンを取り直す。
+     * liff.login() は「ログイン済み」だと再認証せず古いトークンを返すため、
+     * 先に logout() してから login() して確実にトークンを更新する。
+     */
     relogin: function () {
       try { sessionStorage.removeItem('liff_login_attempted'); } catch (e) {}
+      try {
+        if (typeof liff !== 'undefined' && liff.logout && liff.isLoggedIn && liff.isLoggedIn()) {
+          liff.logout();
+        }
+      } catch (e) {}
       if (typeof liff !== 'undefined' && liff.login) {
         liff.login();
       } else {
