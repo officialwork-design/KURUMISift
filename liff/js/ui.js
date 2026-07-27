@@ -279,8 +279,7 @@ window.UI = (function () {
     var options = leaves.length
       ? leaves.map(function (l) {
           return '<label class="leave-opt"><input type="radio" name="leave" value="' + esc(l.leave_id) + '">' +
-            '<span>休日出勤日 ' + esc(l.work_date) + ' / 付与 ' + esc(l.granted_days) + '日 / 期限 ' +
-            esc(l.expiration_date) + '</span></label>';
+            '<span>休日出勤日 ' + esc(l.work_date) + ' / 付与 ' + esc(l.granted_days) + '日</span></label>';
         }).join('')
       : '<p class="muted">利用可能な代休がありません。</p>';
     app().innerHTML =

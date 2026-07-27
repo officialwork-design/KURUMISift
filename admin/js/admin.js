@@ -183,7 +183,7 @@
       }).join('');
       var rows = data.leaves.map(function (l) {
         return '<tr><td>' + esc(l.work_date) + '</td><td>' + esc(l.granted_days) + '</td>' +
-          '<td>' + esc(l.expiration_date) + '</td><td>' + esc(l.used_date || '') + '</td>' +
+          '<td>' + esc(l.expiration_date || '無期限') + '</td><td>' + esc(l.used_date || '') + '</td>' +
           '<td><span class="pill lv-' + esc(l.status) + '">' + esc(LEAVE_LABEL[l.status] || l.status) + '</span></td></tr>';
       }).join('');
       main().innerHTML = '<div class="panel"><h2>代休台帳</h2><div class="chips">' + chips + '</div>' +

@@ -66,15 +66,23 @@ function dispatch(req) {
   var payload = req.payload || {};
 
   switch (action) {
-    // セッション確立：登録有無を返す
+    // セッション確立：登録有無を返す。登録済み＆在籍中ならホーム＋当月カレンダーも同梱（往復1回で完結）
     case A.BOOTSTRAP: {
       var e = session.employee;
-      return apiOk({
+      var active = e ? String(e.status) === EMP_STATUS.ACTIVE : false;
+      var resp = {
         registered: !!e,
-        active: e ? String(e.status) === EMP_STATUS.ACTIVE : false,
+        active: active,
         employee: e ? employeeDto(e) : null,
         profile: { displayName: session.profile.displayName, pictureUrl: session.profile.pictureUrl }
-      });
+      };
+      if (e && active) {
+        touchLastLogin(e.employee_id);
+        var bnow = new Date();
+        resp.home = buildHome(e);
+        resp.calendar = getMonthlySchedule(e.employee_id, bnow.getFullYear(), bnow.getMonth() + 1);
+      }
+      return apiOk(resp);
     }
 
     // 初回登録
@@ -181,21 +189,20 @@ function dispatch(req) {
   }
 }
 
-/** ホーム画面用の集計 */
+/** ホーム画面用の集計（代休一覧は1回だけ読む） */
 function buildHome(emp) {
   var now = new Date();
   var y = now.getFullYear(), m = now.getMonth() + 1;
   var s = summarizeMonth(emp.employee_id, y, m);
-  var pendingCount = listMyRequests(emp.employee_id, REQUEST_STATUS.PENDING).length;
+  var avail = listAvailableLeaves(emp.employee_id);
   return {
     employee: employeeDto(emp),
     year: y, month: m,
     regularWorkDays: s.regularWorkDays,
     holidayWorkDays: s.holidayWorkDays,
-    availableLeaves: countAvailableLeaves(emp.employee_id),
+    availableLeaves: avail.length,
     paidLeaveBalance: Number(emp.paid_leave_balance || 0),
-    pendingRequests: pendingCount,
-    leavesExpiringSoon: countLeavesExpiringWithin(emp.employee_id, 14)
+    leavesExpiringSoon: 0 // 期限の仕組みは廃止
   };
 }
 
@@ -213,20 +220,15 @@ function buildAdminDashboard() {
 
   var allLeaves = findRows(SHEET.LEAVES, function () { return true; }).map(function (r) { return r.data; });
   var unused = allLeaves.filter(function (l) { return String(l.status) === LEAVE_STATUS.AVAILABLE; });
-  var within7 = unused.filter(function (l) {
-    return String(l.expiration_date) >= today && String(l.expiration_date) <= addDaysYmd(today, 7);
-  }).length;
-  var expired = allLeaves.filter(function (l) {
-    return String(l.status) === LEAVE_STATUS.EXPIRED ||
-      (String(l.status) === LEAVE_STATUS.AVAILABLE && isExpired(String(l.expiration_date), today));
-  }).length;
+  // 期限の仕組みは廃止。期限間近は0、期限切れは過去の(旧)EXPIREDのみ集計。
+  var expired = allLeaves.filter(function (l) { return String(l.status) === LEAVE_STATUS.EXPIRED; }).length;
 
   return {
     todayAttending: attending,
     todayOff: offToday,
     pendingRequests: listAllRequests(REQUEST_STATUS.PENDING).length,
     unusedLeaves: unused.length,
-    leavesExpiringWithin7: within7,
+    leavesExpiringWithin7: 0,
     expiredLeaves: expired
   };
 }

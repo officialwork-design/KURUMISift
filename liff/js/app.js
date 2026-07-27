@@ -44,6 +44,14 @@
         UI.setLoading(false);
         if (!data.registered) return showRegister();
         if (!data.active) return UI.renderError('アカウントが停止中です。管理者にお問い合わせください。', boot);
+        // bootstrap がホーム＋カレンダーを同梱していれば、追加リクエストなしで即描画（高速）
+        if (data.home && data.calendar) {
+          var now = new Date();
+          var y = now.getFullYear(), m = now.getMonth() + 1;
+          _availableLeaves = data.home.availableLeaves || 0;
+          S.set({ employee: data.home.employee, calendar: data.calendar, currentYear: y, currentMonth: m, screen: 'home' });
+          return UI.renderHome(data.home, data.calendar, homeHandlers(y, m));
+        }
         return showHome();
       })
       .catch(function (err) { UI.setLoading(false); fail(err); });
@@ -160,8 +168,7 @@
             var leave = data.leaves.filter(function (l) { return l.leave_id === payload.selected_leave_id; })[0];
             UI.confirmDialog([
               ['取得希望日', payload.target_date],
-              ['使用する代休', leave ? ('休日出勤日 ' + leave.work_date) : ''],
-              ['期限', leave ? leave.expiration_date : '']
+              ['使用する代休', leave ? ('休日出勤日 ' + leave.work_date) : '']
             ], function (done) {
               Api.call('createCompLeave', payload)
                 .then(function (res) {

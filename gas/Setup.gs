@@ -79,11 +79,13 @@ function createInitialAdmin() {
 /* ---------------- 代休期限通知（時間主導トリガー） ---------------- */
 
 /**
- * 代休有効期限が残り14日/7日の available 代休について、本人へ通知する。
- * 同一(leave_id, days, 実行日)の重複送信を操作ログで防止する。
- * 日次の時間主導トリガーから呼び出す。
+ * 【廃止】代休の有効期限をなくしたため、期限通知は行わない。
+ * トリガーが残っていても何もしないよう、先頭で return する。
  */
 function sendCompensatoryLeaveExpiryNotifications() {
+  return 0; // 期限の仕組みは廃止
+
+  /* eslint-disable no-unreachable */
   var today = formatDate(new Date());
   var targets = [14, 7];
   var sent = 0;

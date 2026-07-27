@@ -105,6 +105,14 @@ function verifyAccessToken(accessToken) {
   if (!accessToken) {
     throw new AppError(ERROR_CODES.UNAUTHENTICATED, 'アクセストークンがありません。再ログインしてください。');
   }
+  // 同一トークンの検証結果を短時間キャッシュ（LINEへの2回の問い合わせを省略し高速化）
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'tok_' + Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, accessToken));
+  var hit = cache.get(cacheKey);
+  if (hit) {
+    try { return JSON.parse(hit); } catch (e) {}
+  }
   try {
     var vr = UrlFetchApp.fetch(
       'https://api.line.me/oauth2/v2.1/verify?access_token=' + encodeURIComponent(accessToken),
@@ -133,11 +141,13 @@ function verifyAccessToken(accessToken) {
       var pd = pb.message || ('HTTP ' + pc);
       throw new AppError(ERROR_CODES.INVALID_TOKEN, 'プロフィール取得に失敗しました（' + pd + '）。');
     }
-    return {
+    var profile = {
       lineUserId: pb.userId,
       displayName: pb.displayName || '',
       pictureUrl: pb.pictureUrl || ''
     };
+    try { cache.put(cacheKey, JSON.stringify(profile), 300); } catch (e) {} // 5分キャッシュ
+    return profile;
   } catch (e) {
     if (e instanceof AppError) throw e;
     throw new AppError(ERROR_CODES.INVALID_TOKEN, 'アクセストークンの検証に失敗しました。');

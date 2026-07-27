@@ -17,7 +17,6 @@ function grantLeave(employeeId, holidayWorkRequestId, workDate) {
   if (existing) {
     return existing.data; // 二重付与防止
   }
-  var expiryDays = parseInt(getSetting('COMP_LEAVE_EXPIRY_DAYS', '60'), 10) || 60;
   var now = nowIso();
   var leave = {
     leave_id: uuid(),
@@ -25,7 +24,7 @@ function grantLeave(employeeId, holidayWorkRequestId, workDate) {
     holiday_work_request_id: holidayWorkRequestId,
     work_date: workDate,
     granted_days: 1,
-    expiration_date: addDaysYmd(workDate, expiryDays),
+    expiration_date: '', // 無期限（期限の仕組みは廃止）
     used_date: '',
     compensatory_request_id: '',
     status: LEAVE_STATUS.AVAILABLE,
@@ -42,24 +41,11 @@ function grantLeave(employeeId, holidayWorkRequestId, workDate) {
  * 古い代休から使うため昇順ソートして返す。
  */
 function listAvailableLeaves(employeeId) {
-  var today = formatDate(new Date());
-  var rows = findRows(SHEET.LEAVES, function (l) {
+  // 期限の仕組みは廃止。available の代休をそのまま返す（読み取りのみ＝高速）。
+  var valid = findRows(SHEET.LEAVES, function (l) {
     return String(l.employee_id) === String(employeeId) &&
            String(l.status) === LEAVE_STATUS.AVAILABLE;
   }).map(function (r) { return r.data; });
-
-  var valid = [];
-  rows.forEach(function (l) {
-    if (isExpired(String(l.expiration_date), today)) {
-      // 遅延的に期限切れへ更新
-      try {
-        updateRowById(SHEET.LEAVES, 'leave_id', l.leave_id, { status: LEAVE_STATUS.EXPIRED, updated_at: nowIso() });
-        logAction(employeeId, ACTION_TYPE.EXPIRE_LEAVE, 'leave', l.leave_id, l, null);
-      } catch (e) { logError(employeeId, 'listAvailableLeaves.expire', e); }
-    } else {
-      valid.push(l);
-    }
-  });
   valid.sort(compareLeaveOldestFirst);
   return valid;
 }
@@ -69,11 +55,7 @@ function setLeavePending(leaveId, compRequestId) {
   var leave = getLeaveById(leaveId);
   if (!leave) throw new AppError(ERROR_CODES.NOT_FOUND, '対象の代休が見つかりません。');
   if (String(leave.status) !== LEAVE_STATUS.AVAILABLE) {
-    throw new AppError(ERROR_CODES.LEAVE_UNAVAILABLE, 'この代休は利用できません（既に申請中/使用済み/期限切れ）。');
-  }
-  if (isExpired(String(leave.expiration_date), formatDate(new Date()))) {
-    updateRowById(SHEET.LEAVES, 'leave_id', leaveId, { status: LEAVE_STATUS.EXPIRED, updated_at: nowIso() });
-    throw new AppError(ERROR_CODES.LEAVE_EXPIRED, 'この代休は有効期限を過ぎています。');
+    throw new AppError(ERROR_CODES.LEAVE_UNAVAILABLE, 'この代休は利用できません（既に申請中/使用済み）。');
   }
   return updateRowById(SHEET.LEAVES, 'leave_id', leaveId, {
     status: LEAVE_STATUS.PENDING,
@@ -117,42 +99,23 @@ function listLeaves(filter) {
   if (filter === 'unused') {
     rows = rows.filter(function (l) { return String(l.status) === LEAVE_STATUS.AVAILABLE; });
   } else if (filter === 'expired') {
-    rows = rows.filter(function (l) {
-      return String(l.status) === LEAVE_STATUS.EXPIRED ||
-        (String(l.status) === LEAVE_STATUS.AVAILABLE && isExpired(String(l.expiration_date), today));
-    });
+    // 期限の仕組みは廃止。旧データの EXPIRED のみ表示。
+    rows = rows.filter(function (l) { return String(l.status) === LEAVE_STATUS.EXPIRED; });
   }
   return rows;
 }
 
-/** 期限切れ判定バッチ（時間主導トリガー等から利用可）。available で期限超過を expired に。 */
+/** 期限の仕組みは廃止したため何もしない（後方互換のため関数は残置）。 */
 function expireLeaves() {
-  var today = formatDate(new Date());
-  var rows = findRows(SHEET.LEAVES, function (l) {
-    return String(l.status) === LEAVE_STATUS.AVAILABLE;
-  });
-  var count = 0;
-  rows.forEach(function (r) {
-    if (isExpired(String(r.data.expiration_date), today)) {
-      updateRowById(SHEET.LEAVES, 'leave_id', r.data.leave_id, { status: LEAVE_STATUS.EXPIRED, updated_at: nowIso() });
-      logAction(r.data.employee_id, ACTION_TYPE.EXPIRE_LEAVE, 'leave', r.data.leave_id, r.data, null);
-      count++;
-    }
-  });
-  return count;
+  return 0;
 }
 
-/** 本人の代休残数（available かつ未期限） */
+/** 本人の代休残数 */
 function countAvailableLeaves(employeeId) {
   return listAvailableLeaves(employeeId).length;
 }
 
-/** 本人の、期限まで days 日以内の available 代休数 */
+/** 期限の仕組みは廃止（常に0）。 */
 function countLeavesExpiringWithin(employeeId, days) {
-  var today = new Date();
-  var limit = formatDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + days, 12));
-  var todayYmd = formatDate(today);
-  return listAvailableLeaves(employeeId).filter(function (l) {
-    return String(l.expiration_date) >= todayYmd && String(l.expiration_date) <= limit;
-  }).length;
+  return 0;
 }
