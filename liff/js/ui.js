@@ -95,8 +95,8 @@ window.UI = (function () {
 
   function closeModal() { modalRoot().innerHTML = ''; }
 
-  /* ---- ホーム ---- */
-  function renderHome(home, handlers) {
+  /* ---- ホーム（勤務カレンダーを内包。遷移するのは申請履歴のみ） ---- */
+  function renderHome(home, cal, handlers) {
     var e = home.employee || {};
     app().innerHTML =
       '<section class="screen">' +
@@ -114,16 +114,18 @@ window.UI = (function () {
         stat('申請中', home.pendingRequests + ' 件') +
         stat('期限が近い代休', home.leavesExpiringSoon + ' 日') +
       '</div>' +
+      '<h3 class="section-title">勤務カレンダー</h3>' +
+      '<div id="home-cal"></div>' +
       '<div class="btn-stack">' +
-        '<button id="h-comp" class="btn btn-primary">代休を申請する</button>' +
-        '<button id="h-holiday" class="btn btn-primary">休日出勤を申請する</button>' +
-        '<button id="h-cal" class="btn btn-outline">勤務カレンダー</button>' +
         '<button id="h-hist" class="btn btn-outline">申請履歴</button>' +
       '</div></section>';
-    document.getElementById('h-comp').addEventListener('click', handlers.onCompLeave);
-    document.getElementById('h-holiday').addEventListener('click', handlers.onHolidayWork);
-    document.getElementById('h-cal').addEventListener('click', handlers.onCalendar);
     document.getElementById('h-hist').addEventListener('click', handlers.onHistory);
+    renderCalendarInto('home-cal', cal, handlers);
+  }
+
+  /** ホーム内カレンダーの月切り替え時に、カレンダー領域だけ再描画 */
+  function updateHomeCalendar(cal, handlers) {
+    renderCalendarInto('home-cal', cal, handlers);
   }
 
   function stat(cap, val) {
@@ -140,8 +142,10 @@ window.UI = (function () {
     if (b) b.addEventListener('click', onBack);
   }
 
-  /* ---- カレンダー ---- */
-  function renderCalendar(cal, handlers) {
+  /* ---- カレンダー（指定コンテナ内に描画。ホームに内包する） ---- */
+  function renderCalendarInto(containerId, cal, handlers) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
     var cells = '';
     var first = new Date(cal.year, cal.month - 1, 1).getDay();
     for (var i = 0; i < first; i++) cells += '<div class="cal-cell empty"></div>';
@@ -153,9 +157,7 @@ window.UI = (function () {
         '<span class="cal-tag">' + esc(shortLabel(d)) + '</span>' +
         '</button>';
     });
-    app().innerHTML =
-      backBar('勤務カレンダー') +
-      '<section class="screen">' +
+    container.innerHTML =
       '<div class="cal-nav">' +
         '<button id="cal-prev" class="btn btn-ghost">‹ 前月</button>' +
         '<span class="cal-title">' + cal.year + '年 ' + cal.month + '月</span>' +
@@ -165,12 +167,12 @@ window.UI = (function () {
       '<div class="cal-grid">' + cells + '</div>' +
       '<p class="cal-hint">日付をタップすると、その日に休日出勤・代休を申請できます。</p>' +
       '<div id="day-detail" class="day-detail"></div>' +
-      '<div class="legend">' + legend() + '</div>' +
-      '</section>';
-    wireBack(handlers.onBack);
-    document.getElementById('cal-prev').addEventListener('click', handlers.onPrev);
-    document.getElementById('cal-next').addEventListener('click', handlers.onNext);
-    Array.prototype.forEach.call(document.querySelectorAll('.cal-cell[data-date]'), function (btn) {
+      '<div class="legend">' + legend() + '</div>';
+    var prev = container.querySelector('#cal-prev');
+    var next = container.querySelector('#cal-next');
+    if (prev && handlers.onPrevMonth) prev.addEventListener('click', handlers.onPrevMonth);
+    if (next && handlers.onNextMonth) next.addEventListener('click', handlers.onNextMonth);
+    Array.prototype.forEach.call(container.querySelectorAll('.cal-cell[data-date]'), function (btn) {
       btn.addEventListener('click', function () {
         var date = btn.getAttribute('data-date');
         var day = cal.days.filter(function (x) { return x.date === date; })[0];
@@ -371,7 +373,7 @@ window.UI = (function () {
     esc: esc, setLoading: setLoading, toast: toast,
     renderError: renderError, renderLoginPrompt: renderLoginPrompt,
     renderRegister: renderRegister, renderRegisterConfirm: renderRegisterConfirm,
-    renderHome: renderHome, renderCalendar: renderCalendar,
+    renderHome: renderHome, updateHomeCalendar: updateHomeCalendar,
     renderHolidayWorkForm: renderHolidayWorkForm, renderCompLeaveForm: renderCompLeaveForm,
     confirmDialog: confirmDialog, renderDone: renderDone, renderHistory: renderHistory,
     closeModal: closeModal,

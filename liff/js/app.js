@@ -51,36 +51,47 @@
     });
   }
 
-  /* ---- ホーム ---- */
+  /* ---- ホーム（勤務カレンダーを内包） ---- */
   function showHome() {
+    var now = new Date();
+    renderHomeFor(now.getFullYear(), now.getMonth() + 1);
+  }
+
+  // ホーム本体＋当月カレンダーを取得して描画
+  function renderHomeFor(year, month) {
+    var homeData;
     Api.call('getHome', {})
       .then(function (home) {
-        S.set({ employee: home.employee, screen: 'home' });
-        UI.renderHome(home, {
-          onCompLeave: showCompLeave,
-          onHolidayWork: showHolidayWork,
-          onCalendar: function () { var n = new Date(); showCalendar(n.getFullYear(), n.getMonth() + 1); },
-          onHistory: function () { showHistory('all'); }
-        });
+        homeData = home;
+        return Api.call('getCalendar', { year: year, month: month }, { silent: true });
+      })
+      .then(function (cal) {
+        S.set({ employee: homeData.employee, calendar: cal, currentYear: year, currentMonth: month, screen: 'home' });
+        UI.renderHome(homeData, cal, homeHandlers(year, month));
       })
       .catch(fail);
   }
 
-  /* ---- カレンダー ---- */
-  function showCalendar(year, month) {
+  // カレンダーの月移動時は、カレンダー領域だけ差し替え
+  function reloadHomeCalendar(year, month) {
     Api.call('getCalendar', { year: year, month: month })
       .then(function (cal) {
-        S.set({ calendar: cal, currentYear: year, currentMonth: month, screen: 'calendar' });
-        UI.renderCalendar(cal, {
-          onBack: showHome,
-          onPrev: function () { var m = shift(year, month, -1); showCalendar(m.y, m.m); },
-          onNext: function () { var m = shift(year, month, 1); showCalendar(m.y, m.m); },
-          onAddHolidayWork: function (date) { showHolidayWork(date); },
-          onAddCompLeave: function (date) { showCompLeave(date); }
-        });
+        S.set({ calendar: cal, currentYear: year, currentMonth: month });
+        UI.updateHomeCalendar(cal, homeHandlers(year, month));
       })
       .catch(fail);
   }
+
+  function homeHandlers(year, month) {
+    return {
+      onHistory: function () { showHistory('all'); },
+      onAddHolidayWork: function (date) { showHolidayWork(date); },
+      onAddCompLeave: function (date) { showCompLeave(date); },
+      onPrevMonth: function () { var m = shift(year, month, -1); reloadHomeCalendar(m.y, m.m); },
+      onNextMonth: function () { var m = shift(year, month, 1); reloadHomeCalendar(m.y, m.m); }
+    };
+  }
+
   function shift(y, m, d) {
     var idx = (y * 12 + (m - 1)) + d;
     return { y: Math.floor(idx / 12), m: (idx % 12) + 1 };

@@ -110,6 +110,8 @@ textarea.input{resize:vertical;}
 .swatch.wt-compensatory_leave{background:#eef2ff;}
 .swatch.wt-paid_leave{background:#fff7e6;}
 .swatch.pending{border:2px dashed var(--pending);}
+.section-title{font-size:15px;margin:18px 0 8px;padding-left:8px;border-left:4px solid var(--green);}
+#home-cal{margin-bottom:8px;}
 .cal-hint{font-size:12px;color:var(--muted);text-align:center;margin:10px 0 4px;}
 .day-detail:empty{display:none;}
 .day-detail{background:#f0fbf4;border:1px solid var(--green);border-radius:10px;padding:12px;margin:8px 0;}
