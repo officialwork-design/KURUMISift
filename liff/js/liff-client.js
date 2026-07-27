@@ -44,10 +44,24 @@ window.LiffClient = (function () {
           return liff.init({ liffId: liffId });
         }).then(function () {
           if (!liff.isLoggedIn()) {
-            // ログインへリダイレクト（この後ページは再読み込みされる）
-            liff.login();
+            // 無限ログインループ防止：一度リダイレクトして戻っても未ログインなら中断する。
+            var attempted = false;
+            try { attempted = sessionStorage.getItem('liff_login_attempted') === '1'; } catch (e) {}
+            if (attempted) {
+              try { sessionStorage.removeItem('liff_login_attempted'); } catch (e) {}
+              throw new Error(
+                'LINEログインが完了できませんでした。\n' +
+                'このページは LINE アプリ内、または LIFF URL（https://liff.line.me/…）から開いてください。\n' +
+                '通常ブラウザで開く場合は、Cookie／トラッキング防止（シークレットモード等）でログイン状態が保持できないことがあります。'
+              );
+            }
+            try { sessionStorage.setItem('liff_login_attempted', '1'); } catch (e) {}
+            // ログインへリダイレクト（戻り先を現在のURLに明示）
+            liff.login({ redirectUri: window.location.href });
             return new Promise(function () {}); // リダイレクト待ち
           }
+          // ログイン成功。ループ防止フラグを解除。
+          try { sessionStorage.removeItem('liff_login_attempted'); } catch (e) {}
           _idToken = liff.getIDToken();
           return liff.getProfile();
         }).then(function (profile) {
