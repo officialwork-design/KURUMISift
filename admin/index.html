@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KURUMI Shift 管理</title>
+  <link rel="stylesheet" href="css/admin.css" />
+  <script>
+    /* 公開してよいクライアント設定のみ（秘密情報は置かない）。
+       LIFF_ID は空でも API_URL 経由で GAS から取得します。 */
+    window.ADMIN_CONFIG = {
+      LIFF_ID: '',        // LINEログイン用 LIFF ID（管理者もLINEで認証）
+      API_URL: '',        // GAS Web アプリの /exec URL
+      TIMEOUT_MS: 20000,
+      INIT_TIMEOUT_MS: 12000
+    };
+  </script>
+</head>
+<body>
+  <div id="loading" class="overlay"><div class="spinner"></div><p id="loading-text">読み込み中...</p></div>
+  <div id="toast" class="toast"></div>
+
+  <header class="admin-header">
+    <span class="brand">KURUMI Shift 管理</span>
+    <span id="admin-name" class="admin-name"></span>
+  </header>
+
+  <nav id="tabs" class="admin-tabs" style="display:none">
+    <button class="atab active" data-tab="dashboard">ダッシュボード</button>
+    <button class="atab" data-tab="requests">申請一覧</button>
+    <button class="atab" data-tab="employees">社員一覧</button>
+    <button class="atab" data-tab="leaves">代休台帳</button>
+    <button class="atab" data-tab="settings">設定</button>
+    <button class="atab" data-tab="logs">操作ログ</button>
+  </nav>
+
+  <main id="admin-main" class="admin-main"></main>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

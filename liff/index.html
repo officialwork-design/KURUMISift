@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KURUMI Shift</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- グローバルローディング -->
+  <div id="loading" class="overlay" aria-live="polite">
+    <div class="spinner" role="status" aria-label="読み込み中"></div>
+    <p id="loading-text">読み込み中...</p>
+  </div>
+
+  <!-- トースト -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- アプリ本体 -->
+  <header class="app-header">
+    <span class="app-title">KURUMI Shift</span>
+  </header>
+  <main id="app" class="app-main"></main>
+
+  <!-- モーダルコンテナ -->
+  <div id="modal-root"></div>
+
+  <!-- LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/liff-client.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
