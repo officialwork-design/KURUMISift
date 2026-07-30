@@ -138,3 +138,41 @@ function installExpiryTrigger() {
   ScriptApp.newTrigger(fn).timeBased().everyDays(1).atHour(9).create();
   return { ok: true, message: '毎日9時台に実行するトリガーを設置しました。' };
 }
+
+/* ---------------- キープウォーム（コールドスタート軽減） ---------------- */
+
+/**
+ * アプリを温める。スプレッドシート接続を維持し、Webアプリの doGet 経路も自分でpingする。
+ * 5分ごとの時間主導トリガーから呼ぶ。
+ */
+function keepWarm() {
+  try { getAllSettings(); } catch (e) {}
+  try {
+    var url = getProp(PROP.GAS_WEB_APP_URL);
+    if (url) {
+      UrlFetchApp.fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'action=getConfig&warm=1',
+        { method: 'get', muteHttpExceptions: true });
+    }
+  } catch (e) {}
+  return 'warmed';
+}
+
+/** キープウォームの5分ごとトリガーを設置（手動実行）。重複設置しない。 */
+function installKeepWarmTrigger() {
+  var fn = 'keepWarm';
+  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === fn;
+  });
+  if (exists) return { ok: true, message: '既にキープウォームのトリガーがあります。' };
+  ScriptApp.newTrigger(fn).timeBased().everyMinutes(5).create();
+  return { ok: true, message: '5分ごとのキープウォームを設置しました。' };
+}
+
+/** キープウォームのトリガーを削除（手動実行）。 */
+function removeKeepWarmTrigger() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'keepWarm') { ScriptApp.deleteTrigger(t); removed++; }
+  });
+  return { ok: true, removed: removed };
+}

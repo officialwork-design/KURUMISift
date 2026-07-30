@@ -97,15 +97,14 @@ function verifyIdToken(idToken) {
 /**
  * LIFF アクセストークンを検証し、プロフィール（ユーザーID等）を返す。
  * アクセストークンは liff が自動更新するため、IDトークンより失効しにくい（推奨）。
- * 1) /oauth2/v2.1/verify?access_token=... で有効性と client_id を確認
- * 2) /v2/profile でユーザーID・表示名・画像を取得
- * 失敗時は INVALID_TOKEN / UNAUTHENTICATED 例外。
+ * 速度優先のため /v2/profile の1回だけ呼ぶ（無効/失効トークンは 401 で弾かれる）。
+ * 結果は5分キャッシュ。失敗時は INVALID_TOKEN / UNAUTHENTICATED 例外。
  */
 function verifyAccessToken(accessToken) {
   if (!accessToken) {
     throw new AppError(ERROR_CODES.UNAUTHENTICATED, 'アクセストークンがありません。再ログインしてください。');
   }
-  // 同一トークンの検証結果を短時間キャッシュ（LINEへの2回の問い合わせを省略し高速化）
+  // 同一トークンの検証結果を短時間キャッシュ（LINEへの問い合わせを省略し高速化）
   var cache = CacheService.getScriptCache();
   var cacheKey = 'tok_' + Utilities.base64EncodeWebSafe(
     Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, accessToken));
@@ -114,23 +113,7 @@ function verifyAccessToken(accessToken) {
     try { return JSON.parse(hit); } catch (e) {}
   }
   try {
-    var vr = UrlFetchApp.fetch(
-      'https://api.line.me/oauth2/v2.1/verify?access_token=' + encodeURIComponent(accessToken),
-      { method: 'get', muteHttpExceptions: true });
-    var vc = vr.getResponseCode();
-    var vb = JSON.parse(vr.getContentText() || '{}');
-    if (vc !== 200) {
-      var d = vb.error_description || vb.error || ('HTTP ' + vc);
-      throw new AppError(ERROR_CODES.INVALID_TOKEN,
-        'アクセストークンの検証に失敗しました（' + d + '）。再ログインしてください。');
-    }
-    // チャネルID整合性チェック（設定があれば）
-    var channelId = getProp(PROP.LINE_CHANNEL_ID);
-    if (channelId && vb.client_id && String(vb.client_id) !== String(channelId)) {
-      throw new AppError(ERROR_CODES.INVALID_TOKEN,
-        'アクセストークンのチャネルIDが一致しません（client_id=' + vb.client_id + '）。');
-    }
-    // プロフィール取得
+    // /v2/profile はトークンが無効/失効なら 401 を返すため、これ1回で検証＋プロフィール取得
     var pr = UrlFetchApp.fetch('https://api.line.me/v2/profile', {
       method: 'get', muteHttpExceptions: true,
       headers: { Authorization: 'Bearer ' + accessToken }
@@ -138,8 +121,9 @@ function verifyAccessToken(accessToken) {
     var pc = pr.getResponseCode();
     var pb = JSON.parse(pr.getContentText() || '{}');
     if (pc !== 200 || !pb.userId) {
-      var pd = pb.message || ('HTTP ' + pc);
-      throw new AppError(ERROR_CODES.INVALID_TOKEN, 'プロフィール取得に失敗しました（' + pd + '）。');
+      var pd = pb.message || pb.error_description || pb.error || ('HTTP ' + pc);
+      throw new AppError(ERROR_CODES.INVALID_TOKEN,
+        'アクセストークンの検証に失敗しました（' + pd + '）。再ログインしてください。');
     }
     var profile = {
       lineUserId: pb.userId,

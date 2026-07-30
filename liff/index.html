@@ -32,19 +32,16 @@
   <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <!--
-    アプリ用スクリプトはキャッシュバスティング付きで読み込む。
-    GitHub Pages / LINE アプリ内ブラウザが古い config.js をキャッシュして
-    「API_URL が未設定です」と誤表示するのを防ぐ。
-    document.write により、非同期化せず記述順どおりに実行される。
+    アプリ用スクリプトは「固定バージョン(?v=)」で読み込む。
+    index.html は no-cache なので常に最新の ?v を参照でき、
+    JS はブラウザにキャッシュされるため2回目以降の起動が速い。
+    フロント更新時は下の v= の数字を上げること（キャッシュ更新）。
   -->
-  <script>
-    (function () {
-      var v = Date.now();
-      var files = ['config', 'state', 'api', 'liff-client', 'ui', 'app'];
-      for (var i = 0; i < files.length; i++) {
-        document.write('<script src="js/' + files[i] + '.js?v=' + v + '"><\/script>');
-      }
-    })();
-  </script>
+  <script src="js/config.js?v=17"></script>
+  <script src="js/state.js?v=17"></script>
+  <script src="js/api.js?v=17"></script>
+  <script src="js/liff-client.js?v=17"></script>
+  <script src="js/ui.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
 </body>
 </html>
