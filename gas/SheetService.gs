@@ -42,9 +42,24 @@ function expectedHeaders(name) {
   return h;
 }
 
-/** シート全値（キャッシュ付き） */
+var _SHEET_CACHE_TTL = 30; // 秒。読み取りI/O削減用。書き込み時は即無効化。
+
+/** シート全値（実行内キャッシュ＋CacheServiceで実行をまたいだ短時間キャッシュ） */
 function _readAll(name) {
   if (_valuesCache[name]) return _valuesCache[name];
+
+  // 実行をまたぐキャッシュ（他リクエストの読み取り結果を再利用）
+  var cache = CacheService.getScriptCache();
+  var ck = 'sheet_' + name;
+  var cached = cache.get(ck);
+  if (cached) {
+    try {
+      var v = JSON.parse(cached);
+      _valuesCache[name] = v;
+      return v;
+    } catch (e) { /* 壊れていたら読み直す */ }
+  }
+
   var sh = getSheet(name);
   var lastRow = sh.getLastRow();
   var lastCol = sh.getLastColumn();
@@ -55,10 +70,18 @@ function _readAll(name) {
     values = sh.getRange(1, 1, lastRow, lastCol).getValues();
   }
   _valuesCache[name] = values;
+  // Date は JSON で ISO 文字列になるが、normalizeCellValue が復元するので問題なし
+  try {
+    var s = JSON.stringify(values);
+    if (s.length < 90000) cache.put(ck, s, _SHEET_CACHE_TTL);
+  } catch (e) { /* サイズ超過等は諦める */ }
   return values;
 }
 
-function _invalidate(name) { delete _valuesCache[name]; }
+function _invalidate(name) {
+  delete _valuesCache[name];
+  try { CacheService.getScriptCache().remove('sheet_' + name); } catch (e) {}
+}
 
 /** 実ヘッダー行（1行目） */
 function getHeaders(name) {

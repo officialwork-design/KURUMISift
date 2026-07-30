@@ -5,7 +5,7 @@
  */
 
 /** ビルドバージョン。デプロイ反映確認用（?action=getConfig で確認できる）。 */
-var APP_BUILD = 'v15-2026-07-27-admin-balances';
+var APP_BUILD = 'v16-2026-07-27-sheet-cache';
 
 /** スクリプトプロパティ名 */
 var PROP = {
