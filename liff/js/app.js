@@ -32,14 +32,22 @@
   /* ---- 起動 ---- */
   function boot() {
     UI.setLoading(true, 'LINEと接続しています...');
+    var t0 = Date.now(), tInit = 0, tApi = 0;
     LiffClient.init()
       .then(function (res) {
+        tInit = Date.now() - t0;
         S.set({ profile: res.profile });
-        return Api.call('bootstrap', {}, { silent: true });
+        var tb = Date.now();
+        return Api.call('bootstrap', {}, { silent: true }).then(function (d) {
+          tApi = Date.now() - tb;
+          return d;
+        });
       })
       .then(function (data) {
         // 認証成功。再ログインガードを解除。
         try { sessionStorage.removeItem('token_relogin_done'); } catch (e) {}
+        // 起動時間の内訳を表示（計測用。原因切り分け後に削除可）
+        UI.toast('起動: LIFF ' + tInit + 'ms / GAS ' + tApi + 'ms');
         S.set({ registered: data.registered, employee: data.employee, profile: data.profile || S.get().profile });
         UI.setLoading(false);
         if (!data.registered) return showRegister();
